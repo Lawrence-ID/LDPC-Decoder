@@ -1,11 +1,27 @@
 // import Mill dependency
 import mill._
+import mill.scalalib._
+import mill.scalalib.publish._
 import mill.define.Sources
 import mill.modules.Util
 import mill.scalalib.TestModule.ScalaTest
 import scalalib._
 // support BSP
 import mill.bsp._
+
+import $file.cde.common
+
+object cde extends CDE
+
+trait CDE
+  extends millbuild.cde.common.CDEModule
+    with ldpcDecPublishModule
+    with ScalaModule {
+
+  override def scalaVersion = ldpcDecTop.scalaVersion
+
+  override def millSourcePath = os.pwd / "cde" / "cde"
+}
 
 object ldpcDecTop extends SbtModule { m =>
   override def millSourcePath = os.pwd
@@ -27,4 +43,24 @@ object ldpcDecTop extends SbtModule { m =>
       ivy"org.scalatest::scalatest::3.2.16"
     )
   }
+  def cdeModule = cde
+
+  override def moduleDeps = super.moduleDeps ++ Seq(cdeModule)
+
+}
+
+trait ldpcDecPublishModule
+  extends PublishModule {
+  def pomSettings = PomSettings(
+    description = artifactName(),
+    organization = "bupt",
+    url = "https://github.com/Lawrence-ID/ldpcDec",
+    licenses = Seq(License.`Apache-2.0`),
+    versionControl = VersionControl.github("", ""),
+    developers = Seq(
+      Developer("Lawrence-ID", "Peng Xiao", "https://github.com/Lawrence-ID")
+    )
+  )
+
+  override def publishVersion: T[String] = T("1.6-SNAPSHOT")
 }

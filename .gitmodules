@@ -1,3 +1,6 @@
 [submodule "cde"]
 	path = cde
 	url = ./cde
+[submodule "rocket-chip"]
+	path = rocket-chip
+	url = ./rocket-chip

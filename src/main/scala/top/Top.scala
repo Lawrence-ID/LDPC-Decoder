@@ -11,8 +11,8 @@ import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.diplomacy.{LazyModule}
 import freechips.rocketchip.tile._
 import org.chipsalliance.cde.config._
-import ldpcdec.DecParamsKey
-import ldpcdec.DebugOptionsKey
+import ldpcdecoder.DecParamsKey
+import ldpcdecoder.DebugOptionsKey
 
 trait HasDecoderParameter{
   implicit val p: Parameters
@@ -20,9 +20,9 @@ trait HasDecoderParameter{
   val debugOpts = p(DebugOptionsKey)
 }
 
-class ldpcDecTop ()(implicit p: Parameters) extends LazyModule with HasDecoderParameter{
+class LDPCDecoderTop ()(implicit p: Parameters) extends LazyModule with HasDecoderParameter{
 
-  class ldpcDecTopImp(wrapper: ldpcDecTop) extends LazyModuleImp(wrapper){
+  class LDPCDecoderTopImp(wrapper: LDPCDecoderTop) extends LazyModuleImp(wrapper){
     val io = IO(new Bundle{
       val in = Input(UInt(16.W))
       val out = Output(UInt(16.W))
@@ -30,14 +30,14 @@ class ldpcDecTop ()(implicit p: Parameters) extends LazyModule with HasDecoderPa
     io.out := io.in
   }
 
-  lazy val module = new ldpcDecTopImp(this)
+  lazy val module = new LDPCDecoderTopImp(this)
 }
 
 object TopMain extends App {
 
     val (config, firrtlOpts, firtoolOpts) = ArgParser.parse(args)
 
-    val decoder = DisableMonitors(p => LazyModule(new ldpcDecTop()(p)))(config)
+    val decoder = DisableMonitors(p => LazyModule(new LDPCDecoderTop()(p)))(config)
 
     (new ChiselStage).execute(firrtlOpts, Seq(ChiselGeneratorAnnotation(() => decoder.module)))
 }

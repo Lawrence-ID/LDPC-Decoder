@@ -105,16 +105,16 @@ trait RocketChip
   }
 }
 
-trait ldpcDecModule extends ScalaModule{
+trait LDPCDecoderModule extends ScalaModule{
   def rocketModule: ScalaModule
   override def moduleDeps = super.moduleDeps ++ Seq(
     rocketModule
   )
 }
 
-object ldpcDecTop extends Cross[ldpcDec]("chisel", "chisel3")
+object LDPCDecoderTop extends Cross[LDPCDecoder]("chisel", "chisel3")
 
-trait ldpcDec extends ldpcDecModule with HasChisel{
+trait LDPCDecoder extends LDPCDecoderModule with HasChisel{
   override def millSourcePath = os.pwd
   def rocketModule = rocketchip(crossValue)
 
@@ -129,38 +129,12 @@ trait ldpcDec extends ldpcDecModule with HasChisel{
   }
 }
 
-// object ldpcDecTop extends SbtModule { m =>
-//   override def millSourcePath = os.pwd
-//   override def scalaVersion = defaultScalaVersion
-//   override def scalacOptions = Seq(
-//     "-language:reflectiveCalls",
-//     "-deprecation",
-//     "-feature",
-//     "-Xcheckinit",
-//   )
-//   override def ivyDeps = Agg(
-//     ivy"org.chipsalliance::chisel:6.2.0",
-//   )
-//   override def scalacPluginIvyDeps = Agg(
-//     ivy"org.chipsalliance:::chisel-plugin:6.2.0",
-//   )
-//   object test extends SbtModuleTests with TestModule.ScalaTest {
-//     override def ivyDeps = m.ivyDeps() ++ Agg(
-//       ivy"org.scalatest::scalatest::3.2.16"
-//     )
-//   }
-//   def rocketModule = rocketchip
-
-//   override def moduleDeps = super.moduleDeps ++ Seq(rocketModule)
-
-// }
-
-trait ldpcDecPublishModule
+trait LDPCDecoderPublishModule
   extends PublishModule {
   def pomSettings = PomSettings(
     description = artifactName(),
     organization = "bupt",
-    url = "https://github.com/Lawrence-ID/ldpcDec",
+    url = "https://github.com/Lawrence-ID/LDPCDecoder",
     licenses = Seq(License.`Apache-2.0`),
     versionControl = VersionControl.github("", ""),
     developers = Seq(

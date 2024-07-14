@@ -1,7 +1,7 @@
 BUILD_DIR = ./build
 RTL_DIR = $(BUILD_DIR)/rtl
 
-TOP = ldpcDecTop
+TOP = LDPCDecoderTop
 SIM_TOP = SimTop
 
 FPGATOP = top.TopMain

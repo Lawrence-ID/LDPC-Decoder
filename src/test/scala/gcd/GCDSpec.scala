@@ -20,7 +20,7 @@ import org.scalatest.matchers.must.Matchers
   * }}}
   * Testing from mill:
   * {{{
-  * mill ldpcDec.test.testOnly gcd.GCDSpec
+  * mill LDPCDecoder.test.testOnly gcd.GCDSpec
   * }}}
   */
 class GCDSpec extends AnyFreeSpec with Matchers {

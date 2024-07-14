@@ -23,7 +23,7 @@ import scala.sys.exit
 import chisel3.util.log2Up
 
 import org.chipsalliance.cde.config.{Config, Parameters}
-import ldpcdec._
+import ldpcdecoder._
 
 object ArgParser {
   val usage =
@@ -31,17 +31,9 @@ object ArgParser {
       |Options
       |--help                  print this help message
       |--config <ConfigClassName>
-      |--num-cores <Int>
-      |--hartidbits <Int>
-      |--with-dramsim3
+      |--llr-bits
       |--fpga-platform
-      |--reset-gen
-      |--enable-difftest
       |--enable-log
-      |--with-chiseldb
-      |--with-rollingdb
-      |--disable-perf
-      |--disable-alwaysdb
       |""".stripMargin
 
   def getConfigByName(confString: String): Parameters = {

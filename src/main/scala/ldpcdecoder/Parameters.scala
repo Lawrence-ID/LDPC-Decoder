@@ -21,3 +21,9 @@ case class DebugOptions
   EnableDebug: Boolean = false,
   EnablePerfDebug: Boolean = true,
 )
+
+trait HasDecParameter{
+  implicit val p: Parameters
+  def MaxZSize = p(DecParamsKey).MaxZSize
+  def LLRBits = p(DecParamsKey).LLRBits
+}

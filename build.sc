@@ -160,3 +160,26 @@ trait RocketChipPublishModule
 
   override def publishVersion: T[String] = T("1.6-SNAPSHOT")
 }
+
+// trait QSNModule extends ScalaModule{
+//   def rocketModule: ScalaModule
+//   override def moduleDeps = super.moduleDeps ++ Seq(
+//     rocketModule
+//   )
+// }
+
+// object QSNTest extends Cross[QSN]("chisel", "chisel3")
+// trait QSN extends QSNModule with HasChisel{
+//   override def millSourcePath = os.pwd
+//   def rocketModule = rocketchip(crossValue)
+
+//   override def ivyDeps = super.ivyDeps() ++ Agg(
+//     defaultVersions(crossValue)("chiseltest"),
+//   )
+
+//   object test extends SbtModuleTests with TestModule.ScalaTest {
+//     override def ivyDeps = super.ivyDeps() ++ Agg(
+//       defaultVersions(crossValue)("chiseltest")
+//     )
+//   }
+// }

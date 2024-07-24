@@ -25,13 +25,13 @@ class ScalaQSN(length: Int) {
 
   private def getLastPBits(str: String, p: Int): String = str.takeRight(p)
 
-  private def circularLeftShift(str: String, shiftAmount: Int, p: Int): String = {
+  private def circularRightShift(str: String, shiftAmount: Int, p: Int): String = {
     val lastPBits = getLastPBits(str, p)
     val shifted = lastPBits.drop(shiftAmount) ++ lastPBits.take(shiftAmount)
     str.dropRight(p) ++ shifted
   }
 
-  private def circularRightShift(str: String, shiftAmount: Int, p: Int): String = {
+  private def circularLeftShift(str: String, shiftAmount: Int, p: Int): String = {
     val lastPBits = getLastPBits(str, p)
     val shifted = lastPBits.takeRight(shiftAmount) ++ lastPBits.dropRight(shiftAmount)
     str.dropRight(p) ++ shifted
@@ -60,22 +60,22 @@ class QSNSpec extends AnyFlatSpec with ChiselScalatestTester {
     })
     val MaxZSize: Int = 384
     val goldenModel = new ScalaQSN(MaxZSize)
+
     test(new QSN(shiftLeft = true)) { c =>
-      for(i <- 0 until 10){
+      for(i <- 0 until 100){
         val in = generateRandomBinaryString(MaxZSize)
         val p = Random.nextInt(MaxZSize-1) + 1
         val ShiftCnt = Random.nextInt(p) + 1
 
         goldenModel.setInput(in, p, ShiftCnt)
         c.io.in.valid.poke(true.B)
-        c.io.out.ready.poke(true.B)
-        c.io.in.bits.poke(("b"++in).U)
-        c.io.p.poke(p.U)
-        c.io.c.poke(ShiftCnt.U)
+        c.io.in.bits.srcData.poke(("b"++in).U)
+        c.io.in.bits.zSize.poke(p.U)
+        c.io.in.bits.shiftSize.poke(ShiftCnt.U)
         c.clock.step()
         goldenModel.poke(true)
         val goldenModelResult = goldenModel.out
-        // println(s"p = $p, c = $ShiftCnt, result = $goldenModelResult")
+        // println(s"p = $p, c = $ShiftCnt, original = $in, result = $goldenModelResult")
         c.io.out.bits.expect(("b"++goldenModelResult).U)
         c.io.in.valid.poke(false.B)
         c.clock.step()
@@ -83,21 +83,20 @@ class QSNSpec extends AnyFlatSpec with ChiselScalatestTester {
     }
 
     test(new QSN(shiftLeft = false)) { c =>
-      for(i <- 0 until 10){
+      for(i <- 0 until 100){
         val in = generateRandomBinaryString(MaxZSize)
         val p = Random.nextInt(MaxZSize-1) + 1
         val ShiftCnt = Random.nextInt(p) + 1
 
         goldenModel.setInput(in, p, ShiftCnt)
         c.io.in.valid.poke(true.B)
-        c.io.out.ready.poke(true.B)
-        c.io.in.bits.poke(("b"++in).U)
-        c.io.p.poke(p.U)
-        c.io.c.poke(ShiftCnt.U)
+        c.io.in.bits.srcData.poke(("b"++in).U)
+        c.io.in.bits.zSize.poke(p.U)
+        c.io.in.bits.shiftSize.poke(ShiftCnt.U)
         c.clock.step()
         goldenModel.poke(false)
         val goldenModelResult = goldenModel.out
-        // println(s"p = $p, c = $ShiftCnt, result = $goldenModelResult")
+        // println(s"p = $p, c = $ShiftCnt, original = $in, result = $goldenModelResult")
         c.io.out.bits.expect(("b"++goldenModelResult).U)
         c.io.in.valid.poke(false.B)
         c.clock.step()

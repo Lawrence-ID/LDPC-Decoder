@@ -1,38 +1,51 @@
-package top
+package ldpcdecoder
 
 import chisel3._
 import chisel3.util._
-// _root_ disambiguates from package chisel3.util.circt if user imports chisel3.util._
+import org.chipsalliance.cde.config.Parameters
 import _root_.circt.stage.ChiselStage
-import chisel3.stage.ChiselGeneratorAnnotation
-
-import freechips.rocketchip
-import freechips.rocketchip.diplomacy._
-import freechips.rocketchip.diplomacy.{LazyModule}
-import freechips.rocketchip.tile._
-import org.chipsalliance.cde.config._
-import ldpcdecoder.{HasDecParameter, DecParamsKey}
-import ldpcdecoder.DebugOptionsKey
-import ldpcdecoder.LLRAddrGenerator
+import top.DefaultConfig
+import ldpcdecoder.DecParamsKey
+import java.lang.reflect.Parameter
 import utility._
 
-trait HasDecoderParameter{
-  implicit val p: Parameters
-  val decoder = p(DecParamsKey)
-  val debugOpts = p(DebugOptionsKey)
+class LLRAddrGenerator(implicit p: Parameters) extends DecModule {
+    val io = IO(new Bundle {
+        val ren = Input(Bool())
+        val llrRAddr = Output(UInt(log2Ceil(ColNum).W))
+        val isLastCol = Output(Bool())
+
+        val wen = Input(Bool())
+        val llrWAddr = Output(UInt(log2Ceil(ColNum).W))
+    })
+
+    val colIdxVec = VecInit(ColIdxOrder.map(_.U))
+    val isLastColVec = VecInit(IsLastCol.map(_.B))
+    assert(colIdxVec.length == isLastColVec.length)
+
+    val rcounter = RegInit(0.U(log2Ceil(ColIdxOrder.length).W))
+    when(io.ren === 1.U) {
+        when(rcounter === (ColIdxOrder.length - 1).U) {
+            rcounter := 0.U
+        } .otherwise {
+            rcounter := rcounter + 1.U
+        }
+    }
+    io.llrRAddr := colIdxVec(rcounter)
+    io.isLastCol := isLastColVec(rcounter)
+
+    val wcounter = RegInit(0.U(log2Ceil(ColIdxOrder.length).W))
+    when(io.wen === 1.U) {
+        when(wcounter === (ColIdxOrder.length - 1).U) {
+            wcounter := 0.U
+        } .otherwise {
+            wcounter := wcounter + 1.U
+        }
+    }
+    io.llrWAddr := colIdxVec(wcounter)
 }
 
-class LDPCDecoderTop ()(implicit p: Parameters) extends LazyModule with HasDecParameter{
-
-  // class LDPCDecoderTopImp(wrapper: LDPCDecoderTop) extends LazyModuleImp(wrapper){
-  //   val io = IO(new Bundle{
-  //     val in = Input(UInt(MaxZSize.W))
-  //     val out = Output(UInt(MaxZSize.W))
-  //   })
-  //   io.out := io.in
-  // }
-
-  class LLRAddrGeneratorImp(wrapper: LDPCDecoderTop) extends LazyModuleImp(wrapper) {
+class GCU(implicit p: Parameters) extends DecModule{
     val io = IO(new Bundle{
         val llrRAddr = ValidIO(UInt(log2Ceil(ColNum).W))
         val isLastCol = Output(Bool())
@@ -65,12 +78,10 @@ class LDPCDecoderTop ()(implicit p: Parameters) extends LazyModule with HasDecPa
     val delay3LastCol = DelayN(io.isLastCol, 3)
 
     val c2vRamRLayer = RegInit(0.U(log2Ceil(LayerNum).W))
-    when(delay2LastCol){
-      when(c2vRamRLayer === (LayerNum - 1).U){
-          c2vRamRLayer := 0.U
-      }.otherwise{
-          c2vRamRLayer := c2vRamRLayer + 1.U
-      }
+    when(c2vRamRLayer === (LayerNum - 1).U){
+        c2vRamRLayer := 0.U
+    }.otherwise{
+        c2vRamRLayer := RegEnable(c2vRamRLayer + 1.U, delay2LastCol)
     }
 
     io.c2vRamRLayer.valid := DelayN(io.llrRAddr.valid, DelayOfShifter - 1)
@@ -135,17 +146,5 @@ class LDPCDecoderTop ()(implicit p: Parameters) extends LazyModule with HasDecPa
     when(io.llrWAddr.valid){ // llr wen
         colScoreBoard(io.llrWAddr.bits) := true.B
     }
-  }
 
-  // lazy val module = new LDPCDecoderTopImp(this)
-  lazy val module = new LLRAddrGeneratorImp(this)
-}
-
-object TopMain extends App {
-
-    val (config, firrtlOpts, firtoolOpts) = ArgParser.parse(args)
-
-    val decoder = DisableMonitors(p => LazyModule(new LDPCDecoderTop()(p)))(config)
-
-    (new ChiselStage).execute(firrtlOpts, Seq(ChiselGeneratorAnnotation(() => decoder.module)))
 }

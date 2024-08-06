@@ -1,4 +1,5 @@
 BUILD_DIR = ./build
+SIM_DIR = ./sim
 RTL_DIR = $(BUILD_DIR)/rtl
 
 TOP = LDPCDecoderTop
@@ -10,8 +11,8 @@ SIMTOP  = top.SimTop
 TOP_V = $(RTL_DIR)/$(TOP).v
 SIM_TOP_V = $(RTL_DIR)/$(SIM_TOP).v
 
-SCALA_FILE = $(shell find ./src/main/scala -name '*.scala')
-TEST_FILE = $(shell find ./src/test/scala -name '*.scala')
+SCALA_FILE = $(shell find $(abspath ./src/main/scala) -name '*.scala')
+TEST_FILE = $(shell find $(abspath ./src/test/scala) -name '*.scala')
 
 TIMELOG = $(BUILD_DIR)/time.log
 TIME_CMD = time -avp -o $(TIMELOG)
@@ -31,3 +32,6 @@ $(TOP_V): $(SCALA_FILE)
 		--target verilog
 
 verilog: $(TOP_V)
+
+sim: $(TOP_V)
+	make -j -C $(SIM_DIR) sim

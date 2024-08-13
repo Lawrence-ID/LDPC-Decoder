@@ -3,31 +3,40 @@ import numpy as np
 def txt_to_matrix(file_path: str, delimiter: str = ',') -> np.ndarray:
     return np.loadtxt(file_path, delimiter=delimiter)
 
-def find_non_negative_one_indices(matrix: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarray):
+def find_non_negative_one_indices(matrix: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarray, np.ndarray):
     all_non_negative_one_indices = []
+    all_non_negative_one_elements = []
     last_element_flags = []
     num_each_row = []
 
     for row_index, row in enumerate(matrix):
         non_negative_one_indices = np.where(row != -1)[0]
+        non_negative_elements = row[row != -1]
         # print(f"{row_index} \t: {non_negative_one_indices.tolist()}, len = {len(non_negative_one_indices)}")
+        # print(f"{row_index} \t: {non_negative_elements.tolist()}")
 
         is_last_col = np.zeros(len(non_negative_one_indices), dtype=bool)
         if len(is_last_col) > 0:
             is_last_col[-1] = True  # 将最后一个元素设置为 True
             # print(f"{row_index} \t: {is_last_col.tolist()}")
 
+        all_non_negative_one_elements.append(non_negative_elements)
         all_non_negative_one_indices.append(non_negative_one_indices)
         last_element_flags.append(is_last_col)
         num_each_row.append(len(non_negative_one_indices))
 
-    return all_non_negative_one_indices, last_element_flags, num_each_row
+    return all_non_negative_one_indices, all_non_negative_one_elements, last_element_flags, num_each_row
 
 def print_message(matrix: np.ndarray):
-    col_idx, is_last_col, num_each_row = find_non_negative_one_indices(matrix)
+    col_idx, shift_value, is_last_col, num_each_row = find_non_negative_one_indices(matrix)
     print("All column indices where elements are not -1:")
     for row_index, row in enumerate(col_idx):
         print(f"/*{row_index}*/ {', '.join(map(str, row))},")
+
+    print("All column value where elements are not -1:")
+    for row_index, value in enumerate(shift_value):
+        value = [int(v) for v in value]
+        print(f"/*{row_index}*/ {', '.join(map(str, value))},")
 
     print("Is last column flags by row:")
     for row_index, flags in enumerate(is_last_col):

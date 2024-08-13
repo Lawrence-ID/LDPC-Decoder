@@ -11,9 +11,7 @@ import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.diplomacy.{LazyModule}
 import freechips.rocketchip.tile._
 import org.chipsalliance.cde.config._
-import ldpcdecoder.{HasDecParameter, DecParamsKey}
-import ldpcdecoder.DebugOptionsKey
-import ldpcdecoder.LLRAddrGenerator
+import ldpcdecoder._
 import utility._
 
 trait HasDecoderParameter{
@@ -35,15 +33,16 @@ class LDPCDecoderTop ()(implicit p: Parameters) extends LazyModule with HasDecPa
   class LLRAddrGeneratorImp(wrapper: LDPCDecoderTop) extends LazyModuleImp(wrapper) {
     val io = IO(new Bundle{
         val llrRAddr = ValidIO(UInt(log2Ceil(ColNum).W))
+        val shiftValue = ValidIO(UInt(log2Ceil(MaxZSize).W))
         val isLastCol = Output(Bool())
         val c2vRamRLayer = ValidIO(UInt(log2Ceil(LayerNum).W))
         val v2cFifoIn = Output(Bool())
         val vnuCoreEn = Output(Bool())
-        val vnuCoreCounter = Output(UInt(log2Ceil(ColNum).W))
+        val vnuCoreCounter = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
         val v2cFifoOut = Output(Bool())
         val cnuCoreEn = Output(Bool())
-        val cnuCoreCounter = Output(UInt(log2Ceil(ColNum).W))
-        val reShifterEn = Output(Bool())
+        val cnuCoreCounter = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
+        val reShiftValue = ValidIO(UInt(log2Ceil(MaxZSize).W))
         val llrWAddr = ValidIO(UInt(log2Ceil(ColNum).W))
     })
 
@@ -57,6 +56,12 @@ class LDPCDecoderTop ()(implicit p: Parameters) extends LazyModule with HasDecPa
     io.llrRAddr.bits := llrAddrGenerator.io.llrRAddr
     io.isLastCol := llrAddrGenerator.io.isLastCol
 
+    val shiftValueGenerator = Module(new ShiftValueGenerator)
+    shiftValueGenerator.io.shiftEn := io.llrRAddr.valid
+
+    io.shiftValue.valid := io.llrRAddr.valid
+    io.shiftValue.bits  := shiftValueGenerator.io.shiftValue
+
     when(io.llrRAddr.valid){ // llr ren
         colScoreBoard(io.llrRAddr.bits) := false.B
     }
@@ -65,12 +70,10 @@ class LDPCDecoderTop ()(implicit p: Parameters) extends LazyModule with HasDecPa
     val delay3LastCol = DelayN(io.isLastCol, 3)
 
     val c2vRamRLayer = RegInit(0.U(log2Ceil(LayerNum).W))
-    when(delay2LastCol){
-      when(c2vRamRLayer === (LayerNum - 1).U){
-          c2vRamRLayer := 0.U
-      }.otherwise{
-          c2vRamRLayer := c2vRamRLayer + 1.U
-      }
+    when(c2vRamRLayer === (LayerNum - 1).U){
+        c2vRamRLayer := 0.U
+    }.otherwise{
+        c2vRamRLayer := RegEnable(c2vRamRLayer + 1.U, delay2LastCol)
     }
 
     io.c2vRamRLayer.valid := DelayN(io.llrRAddr.valid, DelayOfShifter - 1)
@@ -78,7 +81,7 @@ class LDPCDecoderTop ()(implicit p: Parameters) extends LazyModule with HasDecPa
 
     val vnuCoreBegin = DelayN(io.llrRAddr.valid, DelayOfShifter + DelayOfVNU - 1)
     val vnuCoreDone = DelayN(vnuCoreBegin, DelayOfVNU - 1)
-    val vnuCoreCounter = RegInit(0.U(log2Ceil(ColNum).W))
+    val vnuCoreCounter = RegInit(0.U(log2Ceil(MaxDegreeOfCNU).W))
     when(vnuCoreBegin){
         when(delay3LastCol){
             vnuCoreCounter := 0.U
@@ -102,7 +105,7 @@ class LDPCDecoderTop ()(implicit p: Parameters) extends LazyModule with HasDecPa
     val numAtLayer = VecInit(NumAtLayer.map(_.U))
 
     val cnuLayerCounter = RegInit(0.U(log2Ceil(LayerNum).W))
-    val cnuCoreCounter = RegInit(0.U(log2Ceil(ColNum).W))
+    val cnuCoreCounter = RegInit(0.U(log2Ceil(MaxDegreeOfCNU).W))
 
     val cnuCoreBegin = RegInit(false.B)
     val cnuCoreDone = DelayN(cnuCoreBegin, DelayOfCNU)
@@ -125,7 +128,10 @@ class LDPCDecoderTop ()(implicit p: Parameters) extends LazyModule with HasDecPa
     io.cnuCoreEn := cnuCoreBegin
     io.cnuCoreCounter := cnuCoreCounter
 
-    io.reShifterEn := DelayN(cnuCoreBegin, DelayOfCNU)
+    io.reShiftValue.valid := DelayN(cnuCoreBegin, DelayOfCNU)
+    shiftValueGenerator.io.reShiftEn := io.reShiftValue.valid
+    io.reShiftValue.bits := shiftValueGenerator.io.reShiftValue
+
     val reShifterDone = DelayN(cnuCoreBegin, DelayOfCNU + DelayOfShifter)
 
     llrAddrGenerator.io.wen := reShifterDone

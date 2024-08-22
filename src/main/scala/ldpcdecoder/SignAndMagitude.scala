@@ -52,3 +52,31 @@ class SignMagCmb(val MagWidth: Int)(implicit p: Parameters) extends DecModule {
         }
     }
 }
+
+class SignedSaturator(InWidth: Int, OutWidth: Int)(implicit p: Parameters) extends DecModule {
+  require(InWidth > OutWidth, "Input width should be greater than output width")
+  
+  val io = IO(new Bundle {
+    val in  = Input(SInt(InWidth.W))
+    val out = Output(SInt(OutWidth.W))
+  })
+
+  val maxVal = (1.S << (OutWidth - 1)) - 1.S
+  val minVal = -(1.S << (OutWidth - 1))
+
+  io.out := Mux(io.in > maxVal, maxVal, Mux(io.in < minVal, minVal, io.in(OutWidth - 1, 0).asSInt))
+}
+
+class UnsignedSaturator(InWidth: Int, OutWidth: Int)(implicit p: Parameters) extends DecModule {
+  require(InWidth > OutWidth, "Input width should be greater than output width")
+  
+  val io = IO(new Bundle {
+    val in  = Input(UInt(InWidth.W))
+    val out = Output(UInt(OutWidth.W))
+  })
+
+  val maxOut = ((1 << OutWidth) - 1).U
+
+  io.out := Mux(io.in > maxOut, maxOut, io.in(OutWidth-1, 0))
+}
+

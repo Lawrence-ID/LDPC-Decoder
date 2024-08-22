@@ -33,6 +33,20 @@ class SignMagSepSpec extends AnyFlatSpec with ChiselScalatestTester {
         }
     }
 
+    val InWidth = 8
+    val OutWidth = 6
+    test(new SignedSaturator(InWidth, OutWidth)){ c =>
+      val InMax = (1 << (InWidth-1)) - 1
+      val InMin = -(1 << (InWidth-1))
+      val OutMax = (1 << (OutWidth-1)) - 1
+      val OutMin = -(1 << (OutWidth-1))
+      for(i <- InMin until InMax){
+        c.io.in.poke(i.S)
+        // println(s"Input: ${i}, Output: ${c.io.out.peek().litValue}")
+        c.io.out.expect(if (i > OutMax) OutMax else if(i < OutMin) OutMin else (i))
+      }
+    }
+
     
   }
 }

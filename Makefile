@@ -12,6 +12,7 @@ TOP_V = $(RTL_DIR)/$(TOP).v
 SIM_TOP_V = $(RTL_DIR)/$(SIM_TOP).v
 
 SCALA_FILE = $(shell find $(abspath ./src/main/scala) -name '*.scala')
+VFILE = $(shell find $(abspath ./src/main/resources) -name '*.v')
 TEST_FILE = $(shell find $(abspath ./src/test/scala) -name '*.scala')
 
 TIMELOG = $(BUILD_DIR)/time.log
@@ -25,7 +26,7 @@ else
 CHISEL_VERSION = chisel3
 endif
 
-$(TOP_V): $(SCALA_FILE)
+$(TOP_V): $(SCALA_FILE) $(VFILE)
 	mkdir -p $(@D)
 	$(TIME_CMD) mill -i $(TOP)[$(CHISEL_VERSION)].runMain $(FPGATOP) \
 		--target-dir $(@D) \

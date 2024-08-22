@@ -83,6 +83,13 @@ class ScalaVNUCore {
     val (v2cSign, v2cMagnitude) = scalaSignMagSepModule.separation(v2cMsg)
 
     // 计算 gsgn
+    if(counter == 0){
+      this.gsgn = 0
+      this.min0 = (1 << LLRBits) - 1
+      this.min1 = (1 << LLRBits) - 1
+      this.idx0 = 0
+    }
+
     this.gsgn = this.gsgn ^ v2cSign
 
     if(v2cMagnitude < this.min0){
@@ -125,56 +132,45 @@ class VNUCoreSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
             var c2vMsg = (idx0Old << 11) | (min1Old << 6) | (min0Old << 1) | gsgnOld
             c.io.in.c2vMsg.poke(c2vMsg.U)
 
-            val shiftedLLRSeq: Seq[Int] = Seq(1, -32, 12, -1)
-
+            val shiftedLLRSeq: Seq[Int] = Seq(31, -22, 24, -14, -28, -27, 16, -18, -26, 25, -31, -29, -2, -9, -3, -19, -20, 19, -1,
+                                              -7, 13, -3, 
+                                              -24, 0, 29, -16, -32, 4, -4, -16)
+            val isLastColSeq: Seq[Boolean] = Seq(false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true,
+                                              false, false, true,
+                                              false, false, false, false, false, false, false, true)
+            val counterSeq: Seq[Int] = Seq(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 
+                                           0, 1, 2,
+                                           0, 1, 2, 3, 4, 5, 6, 7)
             val goldenModel = new ScalaVNUCore
-            goldenModel.calculate(min0Old=min0Old, min1Old=min1Old, idx0Old=idx0Old, gsgnOld=gsgnOld, counter=0, shiftedLLR = shiftedLLRSeq(0))
-            goldenModel.calculate(min0Old=min0Old, min1Old=min1Old, idx0Old=idx0Old, gsgnOld=gsgnOld, counter=1, shiftedLLR = shiftedLLRSeq(1))
-            goldenModel.calculate(min0Old=min0Old, min1Old=min1Old, idx0Old=idx0Old, gsgnOld=gsgnOld, counter=2, shiftedLLR = shiftedLLRSeq(2))
-            goldenModel.calculate(min0Old=min0Old, min1Old=min1Old, idx0Old=idx0Old, gsgnOld=gsgnOld, counter=3, shiftedLLR = shiftedLLRSeq(3))
-
-            // First clock cycle
-            var counter = 0
-            var shiftedLLR = shiftedLLRSeq(counter)
-            c.io.in.en.poke(true.B)
-            c.io.in.counter.poke(counter.U)
-            c.io.in.shiftedLLR.poke(shiftedLLR.S)
-            println(s"Input: counter: ${counter}, shiftedLLR: ${shiftedLLR}")
-            c.clock.step(1)
-            println(s"Output: clock: ${counter}, gsgn: ${c.io.out.gsgn.peek().litValue}, min0: ${c.io.out.min0.peek().litValue}, min1: ${c.io.out.min1.peek().litValue}, idx0: ${c.io.out.idx0.peek().litValue}, v2cMsg: ${c.io.out.v2cMsg.bits.peek().litValue}")
             
-            // Second clock cycle
-            counter = counter + 1
-            shiftedLLR = shiftedLLRSeq(counter)
-            c.io.in.en.poke(true.B)
-            c.io.in.counter.poke(counter.U)
-            c.io.in.shiftedLLR.poke(shiftedLLR.S)
-            println(s"Input: counter: ${counter}, shiftedLLR: ${shiftedLLR}")
-            c.clock.step(1)
-            println(s"Output: clock: ${counter}, gsgn: ${c.io.out.gsgn.peek().litValue}, min0: ${c.io.out.min0.peek().litValue}, min1: ${c.io.out.min1.peek().litValue}, idx0: ${c.io.out.idx0.peek().litValue}, v2cMsg: ${c.io.out.v2cMsg.bits.peek().litValue}")
-
-            counter = counter + 1
-            shiftedLLR = shiftedLLRSeq(counter)
-            c.io.in.en.poke(true.B)
-            c.io.in.counter.poke(counter.U)
-            c.io.in.shiftedLLR.poke(shiftedLLR.S)
-            println(s"Input: counter: ${counter}, shiftedLLR: ${shiftedLLR}")
-            c.clock.step(1)
-            println(s"Output: clock: ${counter}, gsgn: ${c.io.out.gsgn.peek().litValue}, min0: ${c.io.out.min0.peek().litValue}, min1: ${c.io.out.min1.peek().litValue}, idx0: ${c.io.out.idx0.peek().litValue}, v2cMsg: ${c.io.out.v2cMsg.bits.peek().litValue}")
-
-            counter = counter + 1
-            shiftedLLR = shiftedLLRSeq(counter)
-            c.io.in.en.poke(true.B)
-            c.io.in.counter.poke(counter.U)
-            c.io.in.shiftedLLR.poke(shiftedLLR.S)
-            println(s"Input: counter: ${counter}, shiftedLLR: ${shiftedLLR}")
-            c.clock.step(1)
-            println(s"Output: clock: ${counter}, gsgn: ${c.io.out.gsgn.peek().litValue}, min0: ${c.io.out.min0.peek().litValue}, min1: ${c.io.out.min1.peek().litValue}, idx0: ${c.io.out.idx0.peek().litValue}, v2cMsg: ${c.io.out.v2cMsg.bits.peek().litValue}")
-
+            var counter = 0
+            for(i <- 0 until counterSeq.length){
+              goldenModel.calculate(min0Old=min0Old, min1Old=min1Old, idx0Old=idx0Old, gsgnOld=gsgnOld, counter=counterSeq(i), shiftedLLR = shiftedLLRSeq(i))
+              
+              counter = counterSeq(i)
+              var shiftedLLR = shiftedLLRSeq(i)
+              c.io.in.en.poke(true.B)
+              c.io.in.isLastCol.poke(isLastColSeq(counter).B)
+              c.io.in.counter.poke(counter.U)
+              c.io.in.shiftedLLR.poke(shiftedLLR.S)
+              println(s"Input: counter: ${counter}, shiftedLLR: ${shiftedLLR}")
+              println(s"Output: clock: ${counter} before, gsgn: ${c.io.out.gsgn.peek().litValue}, min0: ${c.io.out.min0.peek().litValue}, min1: ${c.io.out.min1.peek().litValue}, idx0: ${c.io.out.idx0.peek().litValue}, v2cMsg: ${c.io.out.v2cMsg.bits.peek().litValue}, v2cMsg.valid: ${c.io.in.en.peek().litValue}")
+              c.clock.step(1)
+              println(s"Output: clock: ${counter} after, gsgn: ${c.io.out.gsgn.peek().litValue}, min0: ${c.io.out.min0.peek().litValue}, min1: ${c.io.out.min1.peek().litValue}, idx0: ${c.io.out.idx0.peek().litValue}, v2cMsg: ${c.io.out.v2cMsg.bits.peek().litValue}, v2cMsg.valid: ${c.io.in.en.peek().litValue}")
+              c.io.out.gsgn.expect(goldenModel.gsgn)
+              c.io.out.min0.expect(goldenModel.min0)
+              c.io.out.min1.expect(goldenModel.min1)
+              c.io.out.idx0.expect(goldenModel.idx0)
+              println("=================================================")
+            }
+            
             c.io.in.en.poke(false.B)
             c.clock.step(1)
             println(s"Output: clock: ${counter + 1}, gsgn: ${c.io.out.gsgn.peek().litValue}, min0: ${c.io.out.min0.peek().litValue}, min1: ${c.io.out.min1.peek().litValue}, idx0: ${c.io.out.idx0.peek().litValue}, v2cMsg: ${c.io.out.v2cMsg.bits.peek().litValue}")
-
+            c.io.out.gsgn.expect(goldenModel.gsgn)
+            c.io.out.min0.expect(goldenModel.min0)
+            c.io.out.min1.expect(goldenModel.min1)
+            c.io.out.idx0.expect(goldenModel.idx0)
         }
     }
 }

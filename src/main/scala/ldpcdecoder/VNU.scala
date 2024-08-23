@@ -9,13 +9,11 @@ class VNUCoreInput (implicit p: Parameters) extends DecBundle{
     val en = Bool()
     val c2vMsg = UInt(C2VMsgBits.W)
     val counter = UInt(log2Ceil(MaxDegreeOfCNU).W)
-    val isLastCol = Bool()
     val shiftedLLR = SInt(LLRBits.W)
 }
 
 class VNUCoreOutput (implicit p: Parameters) extends DecBundle{
-    val v2cMsg = ValidIO(SInt((LLRBits + 1).W)) // fifo en & data
-    val vnuLayerDone = Bool() // fifo in en
+    val v2cMsg = SInt((LLRBits + 1).W) // fifo data
     val gsgn = UInt(1.W)
     val min0 = UInt(LLRBits.W)
     val min1 = UInt(LLRBits.W)
@@ -46,8 +44,7 @@ class VNUCore(implicit p: Parameters) extends DecModule {
 
     val v2cMsg = Wire(SInt((LLRBits + 1).W))
     v2cMsg := io.in.shiftedLLR -& c2vMsgPrevIter // keep the carry bit
-    io.out.v2cMsg.valid := io.in.en
-    io.out.v2cMsg.bits := v2cMsg
+    io.out.v2cMsg := v2cMsg
 
     // printf(p"shiftedLLR: ${io.in.shiftedLLR}, c2vMsgPrevIter: ${c2vMsgPrevIter}, v2cMsg: ${v2cMsg}(${Binary(v2cMsg.asUInt)}), v2cMsg.valid: ${io.in.en} \n")
 
@@ -90,11 +87,60 @@ class VNUCore(implicit p: Parameters) extends DecModule {
         }
     }
 
-    io.out.vnuLayerDone := DelayN(io.in.isLastCol, 1)
     io.out.gsgn := Mux(enDelayed, gsgn ^ sign, gsgn)
     io.out.idx0 := Mux(enDelayed && magLessThan0, RegNext(io.in.counter, init = 0.U), idx0)
     io.out.min0 := Mux(enDelayed && magLessThan0, magnitude, min0)
     io.out.min1 := Mux(enDelayed && magLessThan0, min0, 
                    Mux(enDelayed && magLessThan1, magnitude, min1))
 
+}
+
+
+class VNUsInput(implicit p: Parameters) extends DecBundle{
+    val en = Bool()
+    val ZSize = UInt(log2Ceil(MaxZSize).W)
+    val c2vMsg = Vec(MaxZSize, UInt(C2VMsgBits.W)) // Each row in a layer
+    val counter = UInt(log2Ceil(MaxDegreeOfCNU).W)
+    val isLastCol = Bool()
+    val shiftedLLR = Vec(MaxZSize, SInt(LLRBits.W))
+}
+
+class VNUsOutput(implicit p: Parameters) extends DecBundle{
+    val v2cMsgValid = Bool() // Mc2vFifo en
+    val v2cMsg = Vec(MaxZSize, SInt((LLRBits + 1).W)) // Mc2vFifo data, Each row in a layer
+    val vnuLayerDone = Bool() // fifo in en
+    val gsgn = Vec(MaxZSize, UInt(1.W))
+    val min0 = Vec(MaxZSize, UInt(LLRBits.W))
+    val min1 = Vec(MaxZSize, UInt(LLRBits.W))
+    val idx0 = Vec(MaxZSize, UInt(log2Ceil(MaxDegreeOfCNU).W))
+}
+
+class VNUsIO(implicit p: Parameters) extends DecBundle{
+    val in = Input(new VNUsInput)
+    val out = Output(new VNUsOutput)
+}
+
+class VNUs(implicit p: Parameters) extends DecModule {
+    val io = IO(new VNUsIO())
+
+    val vnuCoresMask = MaskGenerator(io.in.ZSize, MaxZSize)
+
+    val vnuCores = Seq.fill(MaxZSize)(Module(new VNUCore()))
+
+    for(i <- 0 until MaxZSize){
+        vnuCores(i).io.in.en := vnuCoresMask(i)
+        vnuCores(i).io.in.c2vMsg := io.in.c2vMsg(i)
+        vnuCores(i).io.in.counter := io.in.counter // TODO: fix fanout, add dup_regs in GCU
+        vnuCores(i).io.in.shiftedLLR := io.in.shiftedLLR(i)
+    }
+
+    io.out.v2cMsgValid := io.in.en
+    io.out.vnuLayerDone := DelayN(io.in.isLastCol, 1)
+    for(i <- 0 until MaxZSize){
+        io.out.v2cMsg(i) := vnuCores(i).io.out.v2cMsg
+        io.out.gsgn(i) := vnuCores(i).io.out.gsgn
+        io.out.min0(i) := vnuCores(i).io.out.min0
+        io.out.min1(i) := vnuCores(i).io.out.min1
+        io.out.idx0(i) := vnuCores(i).io.out.idx0
+    }
 }

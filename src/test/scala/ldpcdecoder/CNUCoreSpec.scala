@@ -91,17 +91,17 @@ class CNUCoreSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
                 c.io.in.counter.poke(counter.U)
 
                 println(s"Input: counter: ${counter}, gsgn: ${gsgnAtLayer(layer)}, min0: ${min0AtLayer(layer)}, min1: ${min1AtLayer(layer)}, idx0: ${idx0AtLayer(layer)}, v2cMsg: ${v2cMsgFifo(i)}")
-                println(s"Output: clock: ${counter} before, c2vMsg(wen:${c.io.out.c2vMsgOld.valid.peek().litValue}): ${c.io.out.c2vMsgOld.bits.peek().litValue}, LLR: ${c.io.out.LLR.peek().litValue}")
+                println(s"Output: clock: ${counter} before, c2vMsg(wen:${c.io.in.en.peek().litToBoolean && c.io.in.counter.peek().litValue == 0}): ${c.io.out.c2vMsgOld.peek().litValue}, LLR: ${c.io.out.LLR.peek().litValue}")
                 c.clock.step(1)
-                println(s"Output: clock: ${counter} after, c2vMsg(wen:${c.io.out.c2vMsgOld.valid.peek().litValue}): ${c.io.out.c2vMsgOld.bits.peek().litValue}, LLR: ${c.io.out.LLR.peek().litValue}")
+                println(s"Output: clock: ${counter} after, c2vMsg(wen:${c.io.in.en.peek().litToBoolean && c.io.in.counter.peek().litValue == 0}): ${c.io.out.c2vMsgOld.peek().litValue}, LLR: ${c.io.out.LLR.peek().litValue}")
                 println("=================================================")
             }
 
             c.io.in.en.poke(false.B)
             println(s"Input en false")
-            println(s"Output: clock: ${counter} before, c2vMsg(wen:${c.io.out.c2vMsgOld.valid.peek().litValue}): ${c.io.out.c2vMsgOld.bits.peek().litValue}, LLR: ${c.io.out.LLR.peek().litValue}")
+            println(s"Output: clock: ${counter} before, c2vMsg(wen:${c.io.in.en.peek().litToBoolean && c.io.in.counter.peek().litValue == 0}): ${c.io.out.c2vMsgOld.peek().litValue}, LLR: ${c.io.out.LLR.peek().litValue}")
             c.clock.step(1)
-            println(s"Output: clock: ${counter} after, c2vMsg(wen:${c.io.out.c2vMsgOld.valid.peek().litValue}): ${c.io.out.c2vMsgOld.bits.peek().litValue}, LLR: ${c.io.out.LLR.peek().litValue}")
+            println(s"Output: clock: ${counter} after, c2vMsg(wen:${c.io.in.en.peek().litToBoolean && c.io.in.counter.peek().litValue == 0}): ${c.io.out.c2vMsgOld.peek().litValue}, LLR: ${c.io.out.LLR.peek().litValue}")
         }
 
     }

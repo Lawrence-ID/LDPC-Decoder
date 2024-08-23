@@ -16,7 +16,7 @@ class CNUCoreInput (implicit p: Parameters) extends DecBundle{
 }
 
 class CNUCoreOutput (implicit p: Parameters) extends DecBundle{
-    val c2vMsgOld = ValidIO(UInt(C2VMsgBits.W)) // Write to C2V RAM
+    val c2vMsgOld = UInt(C2VMsgBits.W) // Write to C2V RAM
     val LLR = SInt(LLRBits.W)
 }
 
@@ -38,8 +38,7 @@ class CNUCore(implicit p: Parameters) extends DecModule {
     val min0Sat = saturatorMin0.io.out
     val min1Sat = saturatorMin1.io.out
 
-    io.out.c2vMsgOld.valid := io.in.en && io.in.counter === 0.U
-    io.out.c2vMsgOld.bits := Cat(io.in.idx0, min1Sat, min0Sat, io.in.gsgn)
+    io.out.c2vMsgOld := Cat(io.in.idx0, min1Sat, min0Sat, io.in.gsgn)
 
     // printf(p"idx0: ${io.in.idx0}, min1Sat: ${min1Sat}, min0Sat: ${min0Sat}, gsgn: ${io.in.gsgn} \n")
 
@@ -74,4 +73,50 @@ class CNUCore(implicit p: Parameters) extends DecModule {
     io.out.LLR := Mux(enDelayed, saturatorLLR.io.out, LLRSat)
 
     
+}
+
+class CNUsInput(implicit p: Parameters) extends DecBundle{
+    val en = Bool()
+    val ZSize = UInt(log2Ceil(MaxZSize).W)
+    val v2cMsg = Vec(MaxZSize, SInt((LLRBits + 1).W)) // Mc2vFifo data, Each row in a layer
+    val counter = UInt(log2Ceil(MaxDegreeOfCNU).W)
+    val gsgn = Vec(MaxZSize, UInt(1.W))
+    val min0 = Vec(MaxZSize, UInt(LLRBits.W))
+    val min1 = Vec(MaxZSize, UInt(LLRBits.W))
+    val idx0 = Vec(MaxZSize, UInt(log2Ceil(MaxDegreeOfCNU).W))
+}
+
+class CNUsOutput(implicit p: Parameters) extends DecBundle{
+    val c2vMsgWen = Bool()                              // Write en
+    val c2vMsgOld = Vec(MaxZSize, UInt(C2VMsgBits.W))   // Write to C2V RAM
+    val LLRValid = Bool()
+    val LLR = Vec(MaxZSize, SInt(LLRBits.W))
+}
+
+class CNUsIO(implicit p: Parameters) extends DecBundle{
+    val in = Input(new CNUsInput)
+    val out = Output(new CNUsOutput)
+}
+
+class CNUs(implicit p: Parameters) extends DecModule {
+    val io = IO(new CNUsIO())
+
+    val cnuCoresMask = MaskGenerator(io.in.ZSize, MaxZSize)
+
+    val cnuCores = Seq.fill(MaxZSize)(Module(new CNUCore()))
+
+    for(i <- 0 until MaxZSize){
+        cnuCores(i).io.in.en := cnuCoresMask(i)
+        cnuCores(i).io.in.v2cMsg := io.in.v2cMsg(i)
+        cnuCores(i).io.in.gsgn := io.in.gsgn(i) 
+        cnuCores(i).io.in.min0 := io.in.min0(i) 
+        cnuCores(i).io.in.min1 := io.in.min1(i) 
+        cnuCores(i).io.in.idx0 := io.in.idx0(i) 
+    }
+
+    io.out.c2vMsgWen := io.in.en && io.in.counter === 0.U
+    io.out.LLRValid := DelayN(io.in.en, 1)
+    for(i <- 0 until MaxZSize){
+        io.out.LLR(i) := cnuCores(i).io.out.LLR
+    }
 }

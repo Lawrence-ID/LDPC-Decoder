@@ -74,8 +74,6 @@ class VNUCore(implicit p: Parameters) extends DecModule {
     val sign = signMagSeperator.io.sign 
     val magnitude = signMagSeperator.io.magnitude 
 
-    // val (sign, magnitude) = SignMagSep(en=enDelayed, in=v2cMsgReg, MagWidth=LLRBits - 1)
-
     // printf(p"en_delay: ${signMagSeperator.io.en}, in: ${signMagSeperator.io.in}, sign: ${sign}, magnitude: ${magnitude} \n")
 
     when(enDelayed) {

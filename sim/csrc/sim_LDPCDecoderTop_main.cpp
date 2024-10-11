@@ -21,7 +21,7 @@ int main(int argc, char **argv){
     contextp->commandArgs(argc, argv);
     contextp->traceEverOn(true);
     top->trace(tfp, 99);
-    tfp->open("/home/ubuntu/Projects/LDPC-Decoder/sim/build/obj_dir/wave.vcd");
+    tfp->open("/nfs/home/pengxiao/Projects/LDPC-Decoder/sim/build/obj_dir/wave.vcd");
 
     top->clock = 1;
     top->reset = 1; 

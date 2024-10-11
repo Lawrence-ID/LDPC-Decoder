@@ -335,5 +335,5 @@ trait HasDecParameter{
   def NumAtLayer = if(isBG1) p(DecParamsKey).BG1NumAtLayer else p(DecParamsKey).BG2NumAtLayer
   def ShiftValue = if(isBG1) p(DecParamsKey).BG1ShiftValue else p(DecParamsKey).BG2ShiftValue
   def MaxDegreeOfCNU = p(DecParamsKey).MaxDegreeOfCNU
-  def C2VMsgBits = 1 + 2 * (LLRBits-1) + log2Ceil(MaxDegreeOfCNU)
+  def C2VRowMsgBits = 1 + 2 * (LLRBits-1) + log2Ceil(MaxDegreeOfCNU)
 }

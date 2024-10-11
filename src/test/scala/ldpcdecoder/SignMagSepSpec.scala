@@ -21,15 +21,15 @@ class SignMagSepSpec extends AnyFlatSpec with ChiselScalatestTester {
 
     val LLRBits: Int = 6
 
-    test(new SignMagSep(LLRBits)) { c =>
+    test(new SignMagSep(LLRBits - 1)) { c =>
 
-        for(i <- -64 to 63){
+        for(i <- -32 to 31){
             c.io.en.poke(true.B)
             c.io.in.poke(i.S)
             c.clock.step()
             // println(s"in = $i, out = ${c.io.sign.peek().litValue}, ${c.io.magnitude.peek().litValue}")
             c.io.sign.expect(if(i < 0) 1.U else 0.U)
-            c.io.magnitude.expect(if(i == -64) 63.U else if(i < 0) (-i).U else i.U)
+            c.io.magnitude.expect(if(i == -32) 31.U else if(i < 0) (-i).U else i.U)
         }
     }
 

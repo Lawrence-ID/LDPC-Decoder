@@ -18,9 +18,9 @@ class SignMagSep(val MagWidth: Int)(implicit p: Parameters) extends DecModule {
 
     when(io.en) {
         when(io.in === -math.pow(2, MagWidth).toInt.S) {
-            // 特例处理: in = -64 时，输出 -63 的表示
+            // 特例处理: in = -32 时，输出 -31 的表示
             io.sign := 1.U
-            io.magnitude := (math.pow(2, MagWidth).toInt - 1).U // 111111 表示 -63
+            io.magnitude := (math.pow(2, MagWidth).toInt - 1).U // 11111 表示 31
         }.elsewhen(io.in(MagWidth) === 1.U){ 
             io.sign := 1.U
             io.magnitude := (~io.in(MagWidth - 1, 0)).asUInt + 1.U 
@@ -28,6 +28,15 @@ class SignMagSep(val MagWidth: Int)(implicit p: Parameters) extends DecModule {
             io.sign := 0.U
             io.magnitude := io.in(MagWidth - 1, 0).asUInt 
         }
+    }
+}
+
+object SignMagSep {
+    def apply(en: Bool, in: SInt, MagWidth: Int)(implicit p: Parameters): (UInt, UInt) = {
+        val sep = Module(new SignMagSep(MagWidth))
+        sep.io.en := en
+        sep.io.in := in
+        (sep.io.sign, sep.io.magnitude)
     }
 }
 
@@ -43,7 +52,6 @@ class SignMagCmb(val MagWidth: Int)(implicit p: Parameters) extends DecModule {
 
     when(io.en) {
         when(io.magnitude === 0.U) {
-            // 特例处理: in = -64 时，输出 -63 的表示
             io.out := 0.S
         } .elsewhen(io.sign === 1.U) {
             io.out := Cat(io.sign, (~io.magnitude).asUInt + 1.U).asSInt

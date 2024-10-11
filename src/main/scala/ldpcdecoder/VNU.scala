@@ -7,7 +7,8 @@ import utility._
 
 class VNUCoreInput (implicit p: Parameters) extends DecBundle{
     val en = Bool()
-    val c2vMsg = UInt(C2VMsgBits.W)
+    val v2cSignOld = UInt(1.W)
+    val c2vRowMsgOld = UInt(C2VRowMsgBits.W)
     val counter = UInt(log2Ceil(MaxDegreeOfCNU).W)
     val shiftedLLR = SInt(LLRBits.W)
 }
@@ -28,15 +29,15 @@ class VNUCoreIO(implicit p: Parameters) extends DecBundle{
 class VNUCore(implicit p: Parameters) extends DecModule {
     val io = IO(new VNUCoreIO())
 
-    // First Stage
-    val gsgnOld  = io.in.c2vMsg(0).asUInt
-    val min0Old = io.in.c2vMsg(5, 1).asUInt   // (LLRBits - 1) bits
-    val min1Old = io.in.c2vMsg(10, 6).asUInt   // (LLRBits - 1) bits
-    val idx0Old = io.in.c2vMsg(15, 11).asUInt
+    // Stage 0
+    val gsgnOld  = io.in.c2vRowMsgOld(0).asUInt
+    val min0Old = io.in.c2vRowMsgOld(5, 1).asUInt   // (LLRBits - 1) bits
+    val min1Old = io.in.c2vRowMsgOld(10, 6).asUInt   // (LLRBits - 1) bits
+    val idx0Old = io.in.c2vRowMsgOld(15, 11).asUInt
 
     val signMagCombinator = Module(new SignMagCmb(LLRBits - 1))
     signMagCombinator.io.en := io.in.en
-    signMagCombinator.io.sign := gsgnOld
+    signMagCombinator.io.sign := gsgnOld ^ io.in.v2cSignOld
     signMagCombinator.io.magnitude := Mux(idx0Old === io.in.counter, min1Old, min0Old)
     
     val c2vMsgPrevIter = Wire(SInt(LLRBits.W))
@@ -49,13 +50,20 @@ class VNUCore(implicit p: Parameters) extends DecModule {
 
     printf(p"shiftedLLR: ${io.in.shiftedLLR}, c2vMsgPrevIter: ${c2vMsgPrevIter}, v2cMsg: ${v2cMsg}(${Binary(v2cMsg.asUInt)}), v2cMsg.valid: ${io.in.en} \n")
 
-    // Second Stage
     val v2cMsgReg = RegEnable(v2cMsg, 0.S((LLRBits + 1).W), io.in.en)
 
+    // Stage 1
     val gsgn = RegInit(0.U(1.W))
     val min0 = RegInit(Fill(LLRBits, 1.U(1.W)))
     val min1 = RegInit(Fill(LLRBits, 1.U(1.W))) 
     val idx0 = RegInit(0.U(log2Ceil(MaxDegreeOfCNU).W))
+
+    when(io.in.en && io.in.counter === 0.U){
+        gsgn := 0.U
+        idx0 := 0.U
+        min0 := Fill(LLRBits, 1.U(1.W))
+        min1 := Fill(LLRBits, 1.U(1.W))
+    }
 
     val enDelayed = RegNext(io.in.en, init = false.B)
 
@@ -65,6 +73,8 @@ class VNUCore(implicit p: Parameters) extends DecModule {
 
     val sign = signMagSeperator.io.sign 
     val magnitude = signMagSeperator.io.magnitude 
+
+    // val (sign, magnitude) = SignMagSep(en=enDelayed, in=v2cMsgReg, MagWidth=LLRBits - 1)
 
     // printf(p"en_delay: ${signMagSeperator.io.en}, in: ${signMagSeperator.io.in}, sign: ${sign}, magnitude: ${magnitude} \n")
 

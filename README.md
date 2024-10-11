@@ -28,7 +28,7 @@ See Verilator installation instructions [here](https://verilator.org/guide/lates
 ```sh
 git clone git@github.com:Lawrence-ID/LDPC-Decoder.git
 cd LDPC-Decoder
-git submodule update --init
+git submodule update --init --recursive
 ```
 ### How to run test
 

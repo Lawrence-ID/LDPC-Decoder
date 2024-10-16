@@ -83,7 +83,7 @@ class GCU(implicit p: Parameters) extends DecModule{
         val vnuCoreCounter = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
         val v2cFifoOut = Output(Bool())
         val decoupledFifoIn = Output(Bool())
-        // val decoupledFifoOut = Output(Bool())
+        val decoupledFifoOut = Output(Bool())
         val cnuCoreEn = Output(Bool())
         val cnuCoreCounter = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
         val reShiftValue = ValidIO(UInt(log2Ceil(MaxZSize).W))
@@ -178,6 +178,8 @@ class GCU(implicit p: Parameters) extends DecModule{
             cnuCoreCounter := cnuCoreCounter + 1.U
         }
     }
+
+    io.decoupledFifoOut := cnuCoreCounter === numAtLayer(cnuLayerCounter) - 1.U && !cnuLastLayerDone
 
     io.v2cFifoOut := cnuCoreBegin
     io.cnuCoreEn := cnuCoreBegin

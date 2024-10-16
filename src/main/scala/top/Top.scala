@@ -44,21 +44,25 @@ class LDPCDecoderTop ()(implicit p: Parameters) extends LazyModule with HasDecPa
         val cnuCoreCounter = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
         val reShiftValue   = ValidIO(UInt(log2Ceil(MaxZSize).W))
         val llrWAddr       = ValidIO(UInt(log2Ceil(ColNum).W))
+        val decoupledFifoIn = Output(Bool())
+        val decoupledFifoOut = Output(Bool())
     })
 
     val GCU = Module(new GCU)
-    io.llrRAddr       := GCU.io.llrRAddr      
-    io.shiftValue     := GCU.io.shiftValue    
-    io.isLastCol      := GCU.io.isLastCol
-    io.c2vRamRLayer   := GCU.io.c2vRamRLayer  
-    io.v2cFifoIn      := GCU.io.v2cFifoIn     
-    io.vnuCoreEn      := GCU.io.vnuCoreEn     
-    io.vnuCoreCounter := GCU.io.vnuCoreCounter
-    io.v2cFifoOut     := GCU.io.v2cFifoOut    
-    io.cnuCoreEn      := GCU.io.cnuCoreEn     
-    io.cnuCoreCounter := GCU.io.cnuCoreCounter
-    io.reShiftValue   := GCU.io.reShiftValue  
-    io.llrWAddr       := GCU.io.llrWAddr  
+    io.llrRAddr         := GCU.io.llrRAddr      
+    io.shiftValue       := GCU.io.shiftValue    
+    io.isLastCol        := GCU.io.isLastCol
+    io.c2vRamRLayer     := GCU.io.c2vRamRLayer  
+    io.v2cFifoIn        := GCU.io.v2cFifoIn     
+    io.vnuCoreEn        := GCU.io.vnuCoreEn     
+    io.vnuCoreCounter   := GCU.io.vnuCoreCounter
+    io.decoupledFifoIn  := GCU.io.decoupledFifoIn
+    io.decoupledFifoOut := GCU.io.decoupledFifoOut
+    io.v2cFifoOut       := GCU.io.v2cFifoOut    
+    io.cnuCoreEn        := GCU.io.cnuCoreEn     
+    io.cnuCoreCounter   := GCU.io.cnuCoreCounter
+    io.reShiftValue     := GCU.io.reShiftValue  
+    io.llrWAddr         := GCU.io.llrWAddr  
 
   }
 

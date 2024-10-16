@@ -64,6 +64,19 @@ class LDPCDecoderTop ()(implicit p: Parameters) extends LazyModule with HasDecPa
     io.reShiftValue     := GCU.io.reShiftValue  
     io.llrWAddr         := GCU.io.llrWAddr  
 
+    val VNUs = Seq.fill(MaxZSize)(Module(new VNUCore))
+    val CNUs = Seq.fill(MaxZSize)(Module(new CNUCore))
+
+    val Mc2vRAM = Module(new SRAMTemplate(
+      UInt((C2VRowMsgBits * MaxZSize).W),
+      set = LayerNum,
+      withClockGate = true
+    ))
+    // val Mv2cSignRAM
+
+    // val Mv2cFifo
+    // val DecoupledFifo
+
   }
 
   lazy val module = new LDPCDecoderImp(this)

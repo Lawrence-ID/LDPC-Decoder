@@ -34,8 +34,9 @@ class LDPCDecoderTop ()(implicit p: Parameters) extends LazyModule with HasDecPa
     val io = IO(new Bundle{
         val llrRAddr       = ValidIO(UInt(log2Ceil(ColNum).W))
         val shiftValue     = ValidIO(UInt(log2Ceil(MaxZSize).W))
-        val isLastCol      = Output(Bool())
-        val c2vRamRLayer   = ValidIO(UInt(log2Ceil(LayerNum).W))
+        val llrRIsLastCol  = Output(Bool())
+        val llrReadyIsLastCal = Output(Bool())
+        val c2vRamReq = ValidIO(UInt(log2Ceil(LayerNum).W))
         val v2cFifoIn      = Output(Bool())
         val vnuCoreEn      = Output(Bool())
         val vnuCoreCounter = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
@@ -51,8 +52,9 @@ class LDPCDecoderTop ()(implicit p: Parameters) extends LazyModule with HasDecPa
     val GCU = Module(new GCU)
     io.llrRAddr         := GCU.io.llrRAddr      
     io.shiftValue       := GCU.io.shiftValue    
-    io.isLastCol        := GCU.io.isLastCol
-    io.c2vRamRLayer     := GCU.io.c2vRamRLayer  
+    io.llrRIsLastCol    := GCU.io.llrRIsLastCol
+    io.llrReadyIsLastCal:= GCU.io.llrReadyIsLastCal
+    io.c2vRamReq        := GCU.io.c2vRamReq
     io.v2cFifoIn        := GCU.io.v2cFifoIn     
     io.vnuCoreEn        := GCU.io.vnuCoreEn     
     io.vnuCoreCounter   := GCU.io.vnuCoreCounter
@@ -64,14 +66,14 @@ class LDPCDecoderTop ()(implicit p: Parameters) extends LazyModule with HasDecPa
     io.reShiftValue     := GCU.io.reShiftValue  
     io.llrWAddr         := GCU.io.llrWAddr  
 
-    val VNUs = Seq.fill(MaxZSize)(Module(new VNUCore))
-    val CNUs = Seq.fill(MaxZSize)(Module(new CNUCore))
+    // val VNUs = Seq.fill(MaxZSize)(Module(new VNUCore))
+    // val CNUs = Seq.fill(MaxZSize)(Module(new CNUCore))
 
-    val Mc2vRAM = Module(new SRAMTemplate(
-      UInt((C2VRowMsgBits * MaxZSize).W),
-      set = LayerNum,
-      withClockGate = true
-    ))
+    // val Mc2vRAM = Module(new SRAMTemplate(
+    //   UInt((C2VRowMsgBits * MaxZSize).W),
+    //   set = LayerNum,
+    //   withClockGate = true
+    // ))
     // val Mv2cSignRAM
 
     // val Mv2cFifo

@@ -16,6 +16,7 @@ class CNUCoreInput (implicit p: Parameters) extends DecBundle{
 }
 
 class CNUCoreOutput (implicit p: Parameters) extends DecBundle{
+    val v2cMsgSign = UInt(1.W)
     val c2vMsg = ValidIO(UInt(C2VRowMsgBits.W))
     val unshiftedLLR = SInt(LLRBits.W)
 }
@@ -35,9 +36,12 @@ class CNUCore(implicit p: Parameters) extends DecModule {
     io.out.c2vMsg.valid := io.in.en
     io.out.c2vMsg.bits := Cat(io.in.idx0, satMin1, satMin0, io.in.gsgn)
 
+    val v2cMsgSign = io.in.v2cMsg.bits(LLRBits + 1 - 1)
+    io.out.v2cMsgSign := v2cMsgSign
+    
     val signMagCombinator = Module(new SignMagCmb(LLRBits))
     signMagCombinator.io.en := io.in.en
-    signMagCombinator.io.sign := io.in.gsgn ^ io.in.v2cMsg.bits(LLRBits + 1 - 1)
+    signMagCombinator.io.sign := io.in.gsgn ^ v2cMsgSign
     signMagCombinator.io.magnitude := Mux(io.in.idx0 === io.in.counter, io.in.min1, io.in.min0)
 
     val c2vMsgReg = RegEnable(signMagCombinator.io.out, io.in.en)

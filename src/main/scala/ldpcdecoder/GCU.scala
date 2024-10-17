@@ -10,6 +10,7 @@ class LLRAddrGenerator(implicit p: Parameters) extends DecModule {
         val ren = Input(Bool())
         val llrRAddr = Output(UInt(log2Ceil(ColNum).W))
         val isLastCol = Output(Bool())
+        val isFirstCol = Output(Bool())
 
         val wen = Input(Bool())
         val llrWAddr = Output(UInt(log2Ceil(ColNum).W))
@@ -17,6 +18,7 @@ class LLRAddrGenerator(implicit p: Parameters) extends DecModule {
 
     val colIdxVec = VecInit(ColIdxOrder.map(_.U))
     val isLastColVec = VecInit(IsLastCol.map(_.B))
+    val isFirstColVec = VecInit(IsFirstCol.map(_.B))
     assert(colIdxVec.length == isLastColVec.length)
 
     val rcounter = RegInit(0.U(log2Ceil(ColIdxOrder.length).W))
@@ -29,6 +31,7 @@ class LLRAddrGenerator(implicit p: Parameters) extends DecModule {
     }
     io.llrRAddr := colIdxVec(rcounter)
     io.isLastCol := isLastColVec(rcounter)
+    io.isFirstCol := isFirstColVec(rcounter)
 
     val wcounter = RegInit(0.U(log2Ceil(ColIdxOrder.length).W))
     when(io.wen === 1.U) {
@@ -76,8 +79,9 @@ class GCU(implicit p: Parameters) extends DecModule{
     val io = IO(new Bundle{
         val llrRAddr = ValidIO(UInt(log2Ceil(ColNum).W))
         val shiftValue = ValidIO(UInt(log2Ceil(MaxZSize).W))
-        val isLastCol = Output(Bool())
-        val c2vRamRLayer = ValidIO(UInt(log2Ceil(LayerNum).W))
+        val llrRIsLastCol = Output(Bool())
+        val llrReadyIsLastCal = Output(Bool())
+        val c2vRamReq = ValidIO(UInt(log2Ceil(LayerNum).W))
         val v2cFifoIn = Output(Bool())
         val vnuCoreEn = Output(Bool())
         val vnuCoreCounter = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
@@ -97,36 +101,37 @@ class GCU(implicit p: Parameters) extends DecModule{
     val colScoreBoard = RegInit(VecInit(Seq.fill(ColNum)(true.B)))
 
     val llrAddrGenerator = Module(new LLRAddrGenerator)
-    llrAddrGenerator.io.ren := colScoreBoard(llrAddrGenerator.io.llrRAddr) && !vnuLastLayerDone && !cnuLastLayerDone
 
     io.llrRAddr.valid := llrAddrGenerator.io.ren
     io.llrRAddr.bits := llrAddrGenerator.io.llrRAddr
-    io.isLastCol := llrAddrGenerator.io.isLastCol
+    io.llrRIsLastCol := llrAddrGenerator.io.isLastCol
+
+    val llrReady = DelayN(io.llrRAddr.valid, 1) // read LLR need 1 cycle
+    val llrReadyIsLastCal = DelayN(io.llrRIsLastCol, 1)
+    io.llrReadyIsLastCal := llrReadyIsLastCal
 
     val shiftValueGenerator = Module(new ShiftValueGenerator)
-    shiftValueGenerator.io.shiftEn := io.llrRAddr.valid
+    shiftValueGenerator.io.shiftEn := llrReady
 
-    io.shiftValue.valid := io.llrRAddr.valid
+    io.shiftValue.valid := llrReady
     io.shiftValue.bits  := shiftValueGenerator.io.shiftValue
 
     when(io.llrRAddr.valid){ // llr ren
         colScoreBoard(io.llrRAddr.bits) := false.B
     }
 
-    val delay2LastCol = DelayN(io.isLastCol, 2)
-    val delay3LastCol = DelayN(io.isLastCol, 3)
+    val delay2LastCol = DelayN(llrReadyIsLastCal, 2)
+    val delay3LastCol = DelayN(llrReadyIsLastCal, 3)
 
     val c2vRamRLayer = RegInit(0.U(log2Ceil(LayerNum).W))
-    when(c2vRamRLayer === (LayerNum - 1).U){
-        c2vRamRLayer := 0.U
-    }.otherwise{
-        c2vRamRLayer := RegEnable(c2vRamRLayer + 1.U, delay2LastCol)
+    when(io.c2vRamReq.valid){
+        c2vRamRLayer := Mux(c2vRamRLayer === (LayerNum - 1).U, 0.U, c2vRamRLayer + 1.U)
     }
 
-    io.c2vRamRLayer.valid := DelayN(io.llrRAddr.valid, DelayOfShifter - 1)
-    io.c2vRamRLayer.bits := c2vRamRLayer
+    io.c2vRamReq.valid := llrAddrGenerator.io.isFirstCol && llrAddrGenerator.io.ren
+    io.c2vRamReq.bits := c2vRamRLayer
 
-    val vnuCoreBegin = DelayN(io.llrRAddr.valid, DelayOfShifter)
+    val vnuCoreBegin = DelayN(llrReady, DelayOfShifter)
     val vnuCoreDone = DelayN(vnuCoreBegin, DelayOfVNU - 1)
     val vnuCoreCounter = RegInit(0.U(log2Ceil(MaxDegreeOfCNU).W))
     when(vnuCoreBegin){
@@ -140,7 +145,7 @@ class GCU(implicit p: Parameters) extends DecModule{
     io.vnuCoreEn := vnuCoreBegin
     io.vnuCoreCounter := vnuCoreCounter
 
-    val vnuLastColDone = DelayN(delay3LastCol, DelayOfVNU - 1)
+    val vnuLastColDone = DelayN(delay3LastCol, DelayOfVNU - 1).suggestName("vnuLastColDone")
 
     val vnuLayerCounter = RegInit(0.U(log2Ceil(LayerNum).W))
     val vnuLayerScoreBoard = RegInit(VecInit(Seq.fill(LayerNum)(false.B)))
@@ -198,5 +203,7 @@ class GCU(implicit p: Parameters) extends DecModule{
     when(io.llrWAddr.valid){ // llr wen
         colScoreBoard(io.llrWAddr.bits) := true.B
     }
+
+    llrAddrGenerator.io.ren := colScoreBoard(llrAddrGenerator.io.llrRAddr) && !vnuLastLayerDone && !cnuLastLayerDone && !(vnuLayerCounter === (LayerNum - 1).U && delay3LastCol)
 
 }

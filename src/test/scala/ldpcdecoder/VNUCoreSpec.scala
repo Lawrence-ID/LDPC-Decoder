@@ -164,7 +164,7 @@ class VNUCoreSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
               c.io.in.v2cSignOld.poke(v2cSignOld.U)
               println(s"Input: counter: ${counter}, shiftedLLR: ${shiftedLLR}")
               c.clock.step(1)
-              println(s"Output: clock: ${counter}, gsgn: ${c.io.out.gsgn.peek().litValue}, min0: ${c.io.out.min0.peek().litValue}, min1: ${c.io.out.min1.peek().litValue}, idx0: ${c.io.out.idx0.peek().litValue}, v2cMsg: ${c.io.out.v2cMsg.bits.peek().litValue}")
+              println(s"Output: clock: ${counter}, gsgn: ${c.io.out.gsgn.peek().litValue}, min0: ${c.io.out.min0.peek().litValue}, min1: ${c.io.out.min1.peek().litValue}, idx0: ${c.io.out.idx0.peek().litValue}, v2cMsg: ${c.io.out.v2cMsg.peek().litValue}")
             }
 
             // Row 1
@@ -195,12 +195,12 @@ class VNUCoreSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
               c.io.in.v2cSignOld.poke(v2cSignOld.U)
               println(s"Input: counter: ${counter}, shiftedLLR: ${shiftedLLR}")
               c.clock.step(1)
-              println(s"Output: clock: ${counter}, gsgn: ${c.io.out.gsgn.peek().litValue}, min0: ${c.io.out.min0.peek().litValue}, min1: ${c.io.out.min1.peek().litValue}, idx0: ${c.io.out.idx0.peek().litValue}, v2cMsg: ${c.io.out.v2cMsg.bits.peek().litValue}")
+              println(s"Output: clock: ${counter}, gsgn: ${c.io.out.gsgn.peek().litValue}, min0: ${c.io.out.min0.peek().litValue}, min1: ${c.io.out.min1.peek().litValue}, idx0: ${c.io.out.idx0.peek().litValue}, v2cMsg: ${c.io.out.v2cMsg.peek().litValue}")
             }
             
             c.io.in.en.poke(false.B)
             c.clock.step(1)
-            println(s"Output: clock: ${counter + 1}, gsgn: ${c.io.out.gsgn.peek().litValue}, min0: ${c.io.out.min0.peek().litValue}, min1: ${c.io.out.min1.peek().litValue}, idx0: ${c.io.out.idx0.peek().litValue}, v2cMsg: ${c.io.out.v2cMsg.bits.peek().litValue}")
+            println(s"Output: clock: ${counter + 1}, gsgn: ${c.io.out.gsgn.peek().litValue}, min0: ${c.io.out.min0.peek().litValue}, min1: ${c.io.out.min1.peek().litValue}, idx0: ${c.io.out.idx0.peek().litValue}, v2cMsg: ${c.io.out.v2cMsg.peek().litValue}")
 
         }
     }

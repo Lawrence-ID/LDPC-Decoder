@@ -81,15 +81,19 @@ class GCU(implicit p: Parameters) extends DecModule{
         val shiftValue = ValidIO(UInt(log2Ceil(MaxZSize).W))
         val llrRIsLastCol = Output(Bool())
         val llrReadyIsLastCal = Output(Bool())
-        val c2vRamReq = ValidIO(UInt(log2Ceil(LayerNum).W))
+        val c2vRamRdReq = ValidIO(UInt(log2Ceil(LayerNum).W))
+        val v2cSignRamRdReq = ValidIO(UInt(log2Ceil(MaxEdgeNum).W))
+        val v2cSignRamWrReq = ValidIO(UInt(log2Ceil(MaxEdgeNum).W))
         val v2cFifoIn = Output(Bool())
         val vnuCoreEn = Output(Bool())
         val vnuCoreCounter = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
+        val vnuLayerCounter = Output(UInt(log2Ceil(LayerNum).W))
         val v2cFifoOut = Output(Bool())
         val decoupledFifoIn = Output(Bool())
         val decoupledFifoOut = Output(Bool())
         val cnuCoreEn = Output(Bool())
         val cnuCoreCounter = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
+        val cnuLayerCounter = Output(UInt(log2Ceil(LayerNum).W))
         val reShiftValue = ValidIO(UInt(log2Ceil(MaxZSize).W))
         val llrWAddr = ValidIO(UInt(log2Ceil(ColNum).W))
     })
@@ -124,12 +128,12 @@ class GCU(implicit p: Parameters) extends DecModule{
     val delay3LastCol = DelayN(llrReadyIsLastCal, 3)
 
     val c2vRamRLayer = RegInit(0.U(log2Ceil(LayerNum).W))
-    when(io.c2vRamReq.valid){
+    when(io.c2vRamRdReq.valid){
         c2vRamRLayer := Mux(c2vRamRLayer === (LayerNum - 1).U, 0.U, c2vRamRLayer + 1.U)
     }
 
-    io.c2vRamReq.valid := llrAddrGenerator.io.isFirstCol && llrAddrGenerator.io.ren
-    io.c2vRamReq.bits := c2vRamRLayer
+    io.c2vRamRdReq.valid := llrAddrGenerator.io.isFirstCol && llrAddrGenerator.io.ren
+    io.c2vRamRdReq.bits := c2vRamRLayer
 
     val vnuCoreBegin = DelayN(llrReady, DelayOfShifter)
     val vnuCoreDone = DelayN(vnuCoreBegin, DelayOfVNU - 1)
@@ -145,6 +149,18 @@ class GCU(implicit p: Parameters) extends DecModule{
     io.vnuCoreEn := vnuCoreBegin
     io.vnuCoreCounter := vnuCoreCounter
 
+    val v2cSignRamRen = DelayN(llrReady, DelayOfShifter - 1) // sign ram ren before vnuBegin
+    val v2cSignRamRcounter = RegInit(0.U(log2Ceil(MaxEdgeNum).W))
+    when(v2cSignRamRen){
+        when(v2cSignRamRcounter + 1.U === EdgeNum.U){
+            v2cSignRamRcounter := 0.U
+        }.otherwise{
+            v2cSignRamRcounter := v2cSignRamRcounter + 1.U
+        }
+    }
+    io.v2cSignRamRdReq.valid := v2cSignRamRen
+    io.v2cSignRamRdReq.bits := v2cSignRamRcounter
+
     val vnuLastColDone = DelayN(delay3LastCol, DelayOfVNU - 1).suggestName("vnuLastColDone")
 
     val vnuLayerCounter = RegInit(0.U(log2Ceil(LayerNum).W))
@@ -157,6 +173,7 @@ class GCU(implicit p: Parameters) extends DecModule{
         vnuLayerScoreBoard(vnuLayerCounter) := true.B
     }
     io.decoupledFifoIn := vnuLastColDone
+    io.vnuLayerCounter := vnuLayerCounter
 
     // CNU Logic
     val numAtLayer = VecInit(NumAtLayer.map(_.U))
@@ -171,6 +188,18 @@ class GCU(implicit p: Parameters) extends DecModule{
     }.elsewhen(cnuCoreBegin && cnuCoreCounter === numAtLayer(cnuLayerCounter) - 1.U){
         cnuCoreBegin := false.B
     }
+
+    val v2cSignRamWen = cnuCoreBegin
+    val v2cSignRamWcounter = RegInit(0.U(log2Ceil(MaxEdgeNum).W))
+    when(v2cSignRamWen){
+        when(v2cSignRamWcounter + 1.U === EdgeNum.U){
+            v2cSignRamWcounter := 0.U
+        }.otherwise{
+            v2cSignRamWcounter := v2cSignRamWcounter + 1.U
+        }
+    }
+    io.v2cSignRamWrReq.valid := v2cSignRamWen
+    io.v2cSignRamWrReq.bits := v2cSignRamWcounter
 
     when(cnuCoreBegin && !cnuLastLayerDone){
         when(cnuCoreCounter === numAtLayer(cnuLayerCounter) - 1.U){
@@ -189,6 +218,7 @@ class GCU(implicit p: Parameters) extends DecModule{
     io.v2cFifoOut := cnuCoreBegin
     io.cnuCoreEn := cnuCoreBegin
     io.cnuCoreCounter := cnuCoreCounter
+    io.cnuLayerCounter := cnuLayerCounter
 
     io.reShiftValue.valid := DelayN(cnuCoreBegin, DelayOfCNU)
     shiftValueGenerator.io.reShiftEn := io.reShiftValue.valid

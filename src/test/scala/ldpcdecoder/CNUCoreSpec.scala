@@ -94,7 +94,7 @@ class CNUCoreSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
                 counter = i
                 c.io.in.en.poke(true.B)
                 c.io.in.counter.poke(counter.U)
-                c.io.in.v2cMsg.bits.poke(v2cMsgSeq(counter).S)
+                c.io.in.v2cMsg.poke(v2cMsgSeq(counter).S)
                 c.io.in.gsgn.poke(gsgn.U)
                 c.io.in.min0.poke(min0.U)
                 c.io.in.min1.poke(min1.U)

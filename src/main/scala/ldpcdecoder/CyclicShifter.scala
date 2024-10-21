@@ -22,7 +22,7 @@ class CyclicShifter(val shiftLeft: Boolean = true)(implicit p: Parameters) exten
     val QSNs = Seq.fill(LLRBits)(Module(new QSN(shiftLeft)))
 
     for(i <- 0 until LLRBits){
-        QSNs(i).io.in.valid := io.in.valid
+        QSNs(i).io.in.valid := io.in.fire
 
         // VecInit(Seq(0.U, 1.U, 1.U, 0.U, 1.U)).asUInt => 22
         QSNs(i).io.in.bits.srcData   := VecInit(io.in.bits.llr.map(_(i))).asUInt // UInt: {llr(383)(0), ..., llr(1)(0), llr(0)(0)}
@@ -31,7 +31,7 @@ class CyclicShifter(val shiftLeft: Boolean = true)(implicit p: Parameters) exten
     }
     
     io.out.valid := QSNs(0).io.out.valid
-    io.in.ready := io.out.ready
+    io.in.ready := true.B
 
     io.out.bits.zipWithIndex.foreach { case (shiftedLLR, i) =>
         shiftedLLR := VecInit(QSNs.map(_.io.out.bits(i))).asUInt

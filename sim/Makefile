@@ -20,7 +20,7 @@ VERILATOR = $(VERILATOR_ROOT)/bin/verilator
 VERILATOR_COVERAGE = $(VERILATOR_ROOT)/bin/verilator_coverage
 endif
 
-VSRC = $(shell find $(abspath ../build/rtl) -name "*.v")
+VSRC = $(shell find $(abspath ../build/rtl) -name "*.v" -or -name "*.sv")
 CSRC = $(shell find $(abspath ./csrc) -name "*.c" -or -name "*.cc" -or -name "*.cpp")
 LIBS += $(shell llvm-config --libs --ldflags --system-libs)
 

@@ -29,7 +29,8 @@ $(TOP_V): $(SCALA_FILE)
 	mkdir -p $(@D)
 	$(TIME_CMD) mill -i $(TOP)[$(CHISEL_VERSION)].runMain $(FPGATOP) \
 		--target-dir $(@D) \
-		--target verilog
+		--target verilog \
+		--split-verilog
 
 verilog: $(TOP_V)
 

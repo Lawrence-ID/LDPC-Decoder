@@ -429,4 +429,6 @@ trait HasDecParameter{
   def ShiftValue = if(isBG1) p(DecParamsKey).BG1ShiftValue else p(DecParamsKey).BG2ShiftValue
   def MaxDegreeOfCNU = p(DecParamsKey).MaxDegreeOfCNU
   def C2VRowMsgBits = 1 + 2 * (LLRBits-1) + log2Ceil(MaxDegreeOfCNU)
+  def MaxEdgeNum = p(DecParamsKey).BG1ColIdx.length
+  def EdgeNum = if(isBG1) p(DecParamsKey).BG1ColIdx.length else p(DecParamsKey).BG2ColIdx.length
 }

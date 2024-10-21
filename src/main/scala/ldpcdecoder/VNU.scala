@@ -14,7 +14,7 @@ class VNUCoreInput (implicit p: Parameters) extends DecBundle{
 }
 
 class VNUCoreOutput (implicit p: Parameters) extends DecBundle{
-    val v2cMsg = ValidIO(SInt((LLRBits + 1).W))
+    val v2cMsg = SInt((LLRBits + 1).W)
     val gsgn = UInt(1.W)
     val min0 = UInt(LLRBits.W)
     val min1 = UInt(LLRBits.W)
@@ -45,10 +45,9 @@ class VNUCore(implicit p: Parameters) extends DecModule {
 
     val v2cMsg = Wire(SInt((LLRBits + 1).W))
     v2cMsg := io.in.shiftedLLR -& c2vMsgPrevIter // keep the carry bit
-    io.out.v2cMsg.valid := io.in.en
-    io.out.v2cMsg.bits := v2cMsg
+    io.out.v2cMsg := v2cMsg
 
-    printf(p"shiftedLLR: ${io.in.shiftedLLR}, c2vMsgPrevIter: ${c2vMsgPrevIter}, v2cMsg: ${v2cMsg}(${Binary(v2cMsg.asUInt)}), v2cMsg.valid: ${io.in.en} \n")
+    // printf(p"shiftedLLR: ${io.in.shiftedLLR}, c2vMsgPrevIter: ${c2vMsgPrevIter}, v2cMsg: ${v2cMsg}(${Binary(v2cMsg.asUInt)}), v2cMsg.valid: ${io.in.en} \n")
 
     val v2cMsgReg = RegEnable(v2cMsg, 0.S((LLRBits + 1).W), io.in.en)
 
@@ -92,4 +91,55 @@ class VNUCore(implicit p: Parameters) extends DecModule {
     io.out.min1 := min1
     io.out.idx0 := idx0
 
+}
+
+class C2VMsgInfo (implicit p: Parameters) extends DecBundle {
+    val gsgn = UInt(1.W)
+    val min0 = UInt(LLRBits.W)
+    val min1 = UInt(LLRBits.W)
+    val idx0 = UInt(log2Ceil(MaxDegreeOfCNU).W)
+}
+
+class VNUsInput (implicit p: Parameters) extends DecBundle {
+    val en = Bool()
+    val zSize = UInt(log2Ceil(MaxZSize).W)
+    val v2cSignOld = Vec(MaxZSize, UInt(1.W))
+    val c2vRowMsgOld = Vec(MaxZSize, UInt(C2VRowMsgBits.W))
+    val counter = UInt(log2Ceil(MaxDegreeOfCNU).W)
+    val shiftedLLR = Vec(MaxZSize, UInt(LLRBits.W))
+}
+
+class VNUsOutput (implicit p: Parameters) extends DecBundle{
+    val v2cMsg = ValidIO(Vec(MaxZSize, SInt((LLRBits + 1).W)))
+    val c2vRowMsg = Vec(MaxZSize, new C2VMsgInfo)
+}
+
+class VNUsIO(implicit p: Parameters) extends DecBundle{
+    val in = Input(new VNUsInput)
+    val out = Output(new VNUsOutput)
+}
+
+class VNUs(implicit p: Parameters) extends DecModule {
+    val io = IO(new VNUsIO())
+
+    val vnuCores = Seq.fill(MaxZSize)(Module(new VNUCore))
+
+    val Zc1H = UIntToOH(io.in.zSize, MaxZSize)
+
+    vnuCores.zipWithIndex.foreach {
+        case (core, i) => 
+            core.io.in.en           := Zc1H(i) && io.in.en
+            core.io.in.v2cSignOld   := io.in.v2cSignOld(i)
+            core.io.in.c2vRowMsgOld := io.in.c2vRowMsgOld(i)
+            core.io.in.counter      := io.in.counter
+            core.io.in.shiftedLLR   := io.in.shiftedLLR(i).asSInt
+
+            io.out.v2cMsg.bits(i) := core.io.out.v2cMsg
+            io.out.c2vRowMsg(i).gsgn := core.io.out.gsgn
+            io.out.c2vRowMsg(i).min0 := core.io.out.min0
+            io.out.c2vRowMsg(i).min1 := core.io.out.min1
+            io.out.c2vRowMsg(i).idx0 := core.io.out.idx0
+    }
+
+    io.out.v2cMsg.valid := io.in.en
 }

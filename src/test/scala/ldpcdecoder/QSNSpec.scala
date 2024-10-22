@@ -7,6 +7,7 @@ import ldpcdecoder.QSN
 import org.scalatest.flatspec.AnyFlatSpec
 import top.DefaultConfig
 import ldpcdecoder.DecParamsKey
+import scala.collection.immutable.Queue
 
 class ScalaQSN(length: Int) {
   var in: String = "0" * length
@@ -62,6 +63,7 @@ class QSNSpec extends AnyFlatSpec with ChiselScalatestTester {
     val goldenModel = new ScalaQSN(MaxZSize)
 
     test(new QSN(shiftLeft = true)) { c =>
+      var q = Queue[UInt]()
       for(i <- 0 until 100){
         val in = generateRandomBinaryString(MaxZSize)
         val p = Random.nextInt(MaxZSize-1) + 1
@@ -73,16 +75,26 @@ class QSNSpec extends AnyFlatSpec with ChiselScalatestTester {
         c.io.in.bits.zSize.poke(p.U)
         c.io.in.bits.shiftSize.poke(ShiftCnt.U)
         c.clock.step()
-        goldenModel.poke(true)
+        goldenModel.poke(true) // shiftLeft or !shiftLeft
         val goldenModelResult = goldenModel.out
-        // println(s"p = $p, c = $ShiftCnt, original = $in, result = $goldenModelResult")
-        c.io.out.bits.expect(("b"++goldenModelResult).U)
-        c.io.in.valid.poke(false.B)
-        c.clock.step()
+        // println(s"i = $i, p = $p, c = $ShiftCnt, original = $in, enq = ${goldenModelResult}")
+        q = q.enqueue(("b"++goldenModelResult).U)
+
+        if(i >= 2){
+          val (deq, newQ) = q.dequeue
+          q = newQ
+          // println(s"i = $i, deq = ${deq.litValue.toString(2)}, out = ${c.io.out.bits.peek().litValue.toString(2)}, out.valid = ${c.io.out.valid.peek().litValue}")
+          c.io.out.bits.expect(deq)
+        }
       }
+      c.io.in.valid.poke(false.B)
+      c.clock.step()
+      c.clock.step()
+      c.clock.step()
     }
 
     test(new QSN(shiftLeft = false)) { c =>
+      var q = Queue[UInt]()
       for(i <- 0 until 100){
         val in = generateRandomBinaryString(MaxZSize)
         val p = Random.nextInt(MaxZSize-1) + 1
@@ -94,13 +106,22 @@ class QSNSpec extends AnyFlatSpec with ChiselScalatestTester {
         c.io.in.bits.zSize.poke(p.U)
         c.io.in.bits.shiftSize.poke(ShiftCnt.U)
         c.clock.step()
-        goldenModel.poke(false)
+        goldenModel.poke(false) // shiftLeft or !shiftLeft
         val goldenModelResult = goldenModel.out
-        // println(s"p = $p, c = $ShiftCnt, original = $in, result = $goldenModelResult")
-        c.io.out.bits.expect(("b"++goldenModelResult).U)
-        c.io.in.valid.poke(false.B)
-        c.clock.step()
+        // println(s"i = $i, p = $p, c = $ShiftCnt, original = $in, enq = ${goldenModelResult}")
+        q = q.enqueue(("b"++goldenModelResult).U)
+
+        if(i >= 2){
+          val (deq, newQ) = q.dequeue
+          q = newQ
+          // println(s"i = $i, deq = ${deq.litValue.toString(2)}, out = ${c.io.out.bits.peek().litValue.toString(2)}, out.valid = ${c.io.out.valid.peek().litValue}")
+          c.io.out.bits.expect(deq)
+        }
       }
+      c.io.in.valid.poke(false.B)
+      c.clock.step()
+      c.clock.step()
+      c.clock.step()
     }
   }
 }

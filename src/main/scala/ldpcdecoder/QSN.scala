@@ -24,47 +24,42 @@ class QSN(val shiftLeft: Boolean = true)(implicit p: Parameters) extends DecModu
     val out = ValidIO(UInt(MaxZSize.W))
   })
 
-  // 三个寄存器用于延迟输出
-  val delayedOut1 = RegInit(0.U(MaxZSize.W))
-  val delayedOut2 = RegInit(0.U(MaxZSize.W))
-  val delayedOut3 = RegInit(0.U(MaxZSize.W))
+  // stage 0
+  val s0_valid = io.in.valid
+  val s0_zSize = io.in.bits.zSize
+  val s0_srcData = io.in.bits.srcData
+  val s0_shiftSize = io.in.bits.shiftSize
 
-  // 三个寄存器用于延迟有效信号
-  val validDelay1 = RegInit(false.B)
-  val validDelay2 = RegInit(false.B)
-  val validDelay3 = RegInit(false.B)
+  val s0_mask = (1.U << s0_zSize) - 1.U
+  val s0_maskedInput = s0_srcData & s0_mask
 
-  when(io.in.valid) {
-    val zSize = io.in.bits.zSize
-    val srcData = io.in.bits.srcData
-    val shiftSize = io.in.bits.shiftSize
+  // stage 1
+  val s1_valid = RegNext(s0_valid, false.B)
+  val s1_maskedInput = RegEnable(s0_maskedInput, 0.U, s0_valid)
+  val s1_shiftSize = RegEnable(s0_shiftSize, 0.U, s0_valid)
+  val s1_zSize = RegEnable(s0_zSize, 0.U, s0_valid)
+  val s1_srcData = RegEnable(s0_srcData, 0.U, s0_valid)
+  val s1_mask = RegEnable(s0_mask, 0.U, s0_valid)
 
-    val mask = (1.U << zSize) - 1.U
-    val maskedInput = srcData & mask
-
-    val shifted = if (shiftLeft) {
-      (maskedInput >> shiftSize) | (maskedInput << (zSize - shiftSize))
-    } else {
-      (maskedInput << shiftSize) | (maskedInput >> (zSize - shiftSize))
-    }
-
-    // 更新延迟寄存器
-    delayedOut1 := (srcData & ~mask) | (shifted & mask) // 计算当前输出
-    delayedOut2 := delayedOut1                           // 第一拍延迟
-    delayedOut3 := delayedOut2                           // 第二拍延迟
-
-    // 更新有效信号
-    validDelay1 := true.B
-    validDelay2 := validDelay1
-    validDelay3 := validDelay2
-  }.otherwise {
-    // 当输入无效时，保持有效信号为假
-    validDelay1 := false.B
-    validDelay2 := false.B
-    validDelay3 := false.B
+  val s1_result = if (shiftLeft) {
+    (s1_maskedInput >> s1_shiftSize) | (s1_maskedInput << (s1_zSize - s1_shiftSize))
+  } else {
+    (s1_maskedInput << s1_shiftSize) | (s1_maskedInput >> (s1_zSize - s1_shiftSize))
   }
 
-  io.out.bits := delayedOut3             // 输出最后的延迟值
-  io.out.valid := validDelay3            // 输出延迟的有效信号
-}
+  // stage 2
+  val s2_valid = RegNext(s1_valid, false.B)
+  val s2_srcData = RegEnable(s1_srcData, 0.U, s1_valid)
+  val s2_mask = RegEnable(s1_mask, 0.U, s1_valid)
+  val s2_shifted = RegEnable(s1_result, 0.U, s1_valid)
 
+  val s2_result = (s2_srcData & ~s2_mask) | (s2_shifted & s2_mask)
+
+  // stage 3 (Output valid)
+  val s3_valid = RegNext(s2_valid, false.B)
+  val s3_result = RegEnable(s2_result, 0.U, s2_valid)
+
+  io.out.bits := s3_result
+  io.out.valid := s3_valid
+
+}

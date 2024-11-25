@@ -2,6 +2,9 @@
 package utility
  
 import chisel3._
+import chisel3.util._
+import org.chipsalliance.cde.config.Parameters
+import utility._
 class SinglePortRAM extends Module {
   val io = IO(new Bundle {
     val addr = Input(UInt(10.W))

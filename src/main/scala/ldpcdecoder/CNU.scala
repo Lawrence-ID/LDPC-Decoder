@@ -108,6 +108,7 @@ class CNUs(implicit p: Parameters) extends DecModule {
     for(i <- 0 until MaxZSize){
         cnuCores(i).io.in.en := cnuCoresMask(i)
         cnuCores(i).io.in.v2cMsg := io.in.v2cMsg(i)
+        cnuCores(i).io.in.counter := io.in.counter // TODO: fix fanout, add dup_regs in GCU
         cnuCores(i).io.in.gsgn := io.in.gsgn(i) 
         cnuCores(i).io.in.min0 := io.in.min0(i) 
         cnuCores(i).io.in.min1 := io.in.min1(i) 
@@ -118,5 +119,6 @@ class CNUs(implicit p: Parameters) extends DecModule {
     io.out.LLRValid := DelayN(io.in.en, 1)
     for(i <- 0 until MaxZSize){
         io.out.LLR(i) := cnuCores(i).io.out.LLR
+        io.out.c2vMsgOld(i) := cnuCores(i).io.out.c2vMsgOld
     }
 }

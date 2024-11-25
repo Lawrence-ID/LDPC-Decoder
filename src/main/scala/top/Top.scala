@@ -22,129 +22,104 @@ trait HasDecoderParameter{
 
 class LDPCDecoderTop ()(implicit p: Parameters) extends LazyModule with HasDecParameter{
 
-  // class LDPCDecoderTopImp(wrapper: LDPCDecoderTop) extends LazyModuleImp(wrapper){
-  //   val io = IO(new Bundle{
-  //     val in = Input(UInt(MaxZSize.W))
-  //     val out = Output(UInt(MaxZSize.W))
-  //   })
-  //   io.out := io.in
-  // }
-
-  class LLRAddrGeneratorImp(wrapper: LDPCDecoderTop) extends LazyModuleImp(wrapper) {
+  class LDPCDecoderTopImp(wrapper: LDPCDecoderTop) extends LazyModuleImp(wrapper) {
     val io = IO(new Bundle{
-        val llrRAddr = ValidIO(UInt(log2Ceil(ColNum).W))
-        val shiftValue = ValidIO(UInt(log2Ceil(MaxZSize).W))
-        val isLastCol = Output(Bool())
-        val c2vRamRLayer = ValidIO(UInt(log2Ceil(LayerNum).W))
-        val v2cFifoIn = Output(Bool())
-        val vnuCoreEn = Output(Bool())
+        val llrShifted     = Input(Vec(MaxZSize, SInt(LLRBits.W)))
+        val ZSize          = Input(UInt(log2Ceil(MaxZSize).W))
+        val llrBeforeReShifted   = Output(Vec(MaxZSize, SInt(LLRBits.W)))
+
+        val llrRAddr       = ValidIO(UInt(log2Ceil(ColNum).W))
+        val shiftValue     = ValidIO(UInt(log2Ceil(MaxZSize).W))
+        val isLastCol      = Output(Bool())
+        val c2vRamLayerR   = ValidIO(UInt(log2Ceil(LayerNum).W))
+        val c2vRamLayerW   = ValidIO(UInt(log2Ceil(LayerNum).W))
+        val v2cFifoIn      = Output(Bool())
+        val vnuCoreEn      = Output(Bool())
         val vnuCoreCounter = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
-        val v2cFifoOut = Output(Bool())
-        val cnuCoreEn = Output(Bool())
+        val v2cFifoOut     = Output(Bool())
+        val cnuCoreEn      = Output(Bool())
         val cnuCoreCounter = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
-        val reShiftValue = ValidIO(UInt(log2Ceil(MaxZSize).W))
-        val llrWAddr = ValidIO(UInt(log2Ceil(ColNum).W))
+        val reShiftValue   = ValidIO(UInt(log2Ceil(MaxZSize).W))
+        val llrWAddr       = ValidIO(UInt(log2Ceil(ColNum).W))
     })
 
-    // VNU Logic
-    val colScoreBoard = RegInit(VecInit(Seq.fill(ColNum)(true.B)))
+    val gcu = Module(new GCU())
 
-    val llrAddrGenerator = Module(new LLRAddrGenerator)
-    llrAddrGenerator.io.ren := colScoreBoard(llrAddrGenerator.io.llrRAddr)
+    val vnus = Module(new VNUs())
 
-    io.llrRAddr.valid := colScoreBoard(llrAddrGenerator.io.llrRAddr)
-    io.llrRAddr.bits := llrAddrGenerator.io.llrRAddr
-    io.isLastCol := llrAddrGenerator.io.isLastCol
+    val Mc2vRAM = Module(new SRAMTemplate(Vec(MaxZSize, UInt(C2VMsgBits.W)), set=LayerNum, way=1, shouldReset=true, holdRead=true, singlePort=false, bypassWrite=true))
+    Mc2vRAM.io.r.req.valid       := gcu.io.c2vRamLayerR.valid
+    Mc2vRAM.io.r.req.bits.setIdx := gcu.io.c2vRamLayerR.bits
 
-    val shiftValueGenerator = Module(new ShiftValueGenerator)
-    shiftValueGenerator.io.shiftEn := io.llrRAddr.valid
+    vnus.io.in.en         := gcu.io.vnuCoreEn
+    vnus.io.in.ZSize      := io.ZSize
+    vnus.io.in.c2vMsg     := Mc2vRAM.io.r.resp.data(0)
+    vnus.io.in.counter    := gcu.io.vnuCoreCounter
+    vnus.io.in.isLastCol  := DelayN(gcu.io.isLastCol, DelayOfShifter)
+    vnus.io.in.shiftedLLR := io.llrShifted
 
-    io.shiftValue.valid := io.llrRAddr.valid
-    io.shiftValue.bits  := shiftValueGenerator.io.shiftValue
+    val Mv2cFifo = Module(new Mv2cFIFO(Vec(MaxZSize, SInt((LLRBits + 1).W)), 24))
+    Mv2cFifo.io.in.valid := gcu.io.v2cFifoIn
+    Mv2cFifo.io.in.bits  := vnus.io.out.v2cMsg
+    Mv2cFifo.io.out.ready := gcu.io.v2cFifoOut
 
-    when(io.llrRAddr.valid){ // llr ren
-        colScoreBoard(io.llrRAddr.bits) := false.B
-    }
+    val Mv2cLayerGsgnFifo = Module(new Mv2cFIFO(Vec(MaxZSize, UInt(1.W)), 2))
+    val Mv2cLayerMin0Fifo = Module(new Mv2cFIFO(Vec(MaxZSize, UInt(LLRBits.W)), 2))
+    val Mv2cLayerMin1Fifo = Module(new Mv2cFIFO(Vec(MaxZSize, UInt(LLRBits.W)), 2))
+    val Mv2cLayerIdx0Fifo = Module(new Mv2cFIFO(Vec(MaxZSize, UInt(log2Ceil(MaxDegreeOfCNU).W)), 2))
 
-    val delay2LastCol = DelayN(io.isLastCol, 2)
-    val delay3LastCol = DelayN(io.isLastCol, 3)
+    Mv2cLayerGsgnFifo.io.in.valid := vnus.io.out.vnuLayerDone
+    Mv2cLayerMin0Fifo.io.in.valid := vnus.io.out.vnuLayerDone
+    Mv2cLayerMin1Fifo.io.in.valid := vnus.io.out.vnuLayerDone
+    Mv2cLayerIdx0Fifo.io.in.valid := vnus.io.out.vnuLayerDone
 
-    val c2vRamRLayer = RegInit(0.U(log2Ceil(LayerNum).W))
-    when(c2vRamRLayer === (LayerNum - 1).U){
-        c2vRamRLayer := 0.U
-    }.otherwise{
-        c2vRamRLayer := RegEnable(c2vRamRLayer + 1.U, delay2LastCol)
-    }
+    Mv2cLayerGsgnFifo.io.in.bits := vnus.io.out.gsgn
+    Mv2cLayerMin0Fifo.io.in.bits := vnus.io.out.min0
+    Mv2cLayerMin1Fifo.io.in.bits := vnus.io.out.min1
+    Mv2cLayerIdx0Fifo.io.in.bits := vnus.io.out.idx0
 
-    io.c2vRamRLayer.valid := DelayN(io.llrRAddr.valid, DelayOfShifter - 1)
-    io.c2vRamRLayer.bits := c2vRamRLayer
+    Mv2cLayerGsgnFifo.io.out.ready := gcu.io.cnuCoreEn
+    Mv2cLayerMin0Fifo.io.out.ready := gcu.io.cnuCoreEn
+    Mv2cLayerMin1Fifo.io.out.ready := gcu.io.cnuCoreEn
+    Mv2cLayerIdx0Fifo.io.out.ready := gcu.io.cnuCoreEn
 
-    val vnuCoreBegin = DelayN(io.llrRAddr.valid, DelayOfShifter + DelayOfVNU - 1)
-    val vnuCoreDone = DelayN(vnuCoreBegin, DelayOfVNU - 1)
-    val vnuCoreCounter = RegInit(0.U(log2Ceil(MaxDegreeOfCNU).W))
-    when(vnuCoreBegin){
-        when(delay3LastCol){
-            vnuCoreCounter := 0.U
-        }.otherwise{
-            vnuCoreCounter := vnuCoreCounter + 1.U
-        }
-    }
-    io.v2cFifoIn := vnuCoreBegin
-    io.vnuCoreEn := vnuCoreBegin
-    io.vnuCoreCounter := vnuCoreCounter
+    val cnus = Module(new CNUs())
 
-    val vnuLastColDone = DelayN(delay3LastCol, DelayOfVNU - 1)
-    val vnuLayerCounter = RegInit(0.U(log2Ceil(LayerNum).W))
-    val vnuLayerScoreBoard = RegInit(VecInit(Seq.fill(LayerNum)(false.B)))
-    when(vnuLastColDone){
-        vnuLayerCounter := vnuLayerCounter + 1.U
-        vnuLayerScoreBoard(vnuLayerCounter) := true.B
-    }
+    cnus.io.in.en      := gcu.io.cnuCoreEn
+    cnus.io.in.ZSize   := io.ZSize
+    cnus.io.in.v2cMsg  := Mv2cFifo.io.out.bits
+    cnus.io.in.counter := gcu.io.cnuCoreCounter
+    cnus.io.in.gsgn    := Mv2cLayerGsgnFifo.io.out.bits
+    cnus.io.in.min0    := Mv2cLayerMin0Fifo.io.out.bits
+    cnus.io.in.min1    := Mv2cLayerMin1Fifo.io.out.bits
+    cnus.io.in.idx0    := Mv2cLayerIdx0Fifo.io.out.bits
 
-    // CNU Logic
-    val numAtLayer = VecInit(NumAtLayer.map(_.U))
+    Mc2vRAM.io.w.apply(
+      valid   = gcu.io.c2vRamLayerW.valid,
+      setIdx  = gcu.io.c2vRamLayerW.bits,
+      data    = cnus.io.out.c2vMsgOld,
+      waymask = 1.U // Don't Care
+    )
+    io.llrBeforeReShifted := cnus.io.out.LLR
+    
 
-    val cnuLayerCounter = RegInit(0.U(log2Ceil(LayerNum).W))
-    val cnuCoreCounter = RegInit(0.U(log2Ceil(MaxDegreeOfCNU).W))
-
-    val cnuCoreBegin = RegInit(false.B)
-    val cnuCoreDone = DelayN(cnuCoreBegin, DelayOfCNU)
-    when(vnuLayerScoreBoard(cnuLayerCounter) && !cnuCoreBegin){
-        cnuCoreBegin := true.B
-    }.elsewhen(cnuCoreBegin && cnuCoreCounter === numAtLayer(cnuLayerCounter) - 1.U){
-        cnuCoreBegin := false.B
-    }
-
-    when(cnuCoreBegin){
-        when(cnuCoreCounter === numAtLayer(cnuLayerCounter) - 1.U){
-            cnuLayerCounter := cnuLayerCounter + 1.U
-            cnuCoreCounter := 0.U
-        }.otherwise{
-            cnuCoreCounter := cnuCoreCounter + 1.U
-        }
-    }
-
-    io.v2cFifoOut := cnuCoreBegin
-    io.cnuCoreEn := cnuCoreBegin
-    io.cnuCoreCounter := cnuCoreCounter
-
-    io.reShiftValue.valid := DelayN(cnuCoreBegin, DelayOfCNU)
-    shiftValueGenerator.io.reShiftEn := io.reShiftValue.valid
-    io.reShiftValue.bits := shiftValueGenerator.io.reShiftValue
-
-    val reShifterDone = DelayN(cnuCoreBegin, DelayOfCNU + DelayOfShifter)
-
-    llrAddrGenerator.io.wen := reShifterDone
-    io.llrWAddr.valid := reShifterDone
-    io.llrWAddr.bits := llrAddrGenerator.io.llrWAddr
-
-    when(io.llrWAddr.valid){ // llr wen
-        colScoreBoard(io.llrWAddr.bits) := true.B
-    }
+    io.llrRAddr       := gcu.io.llrRAddr      
+    io.shiftValue     := gcu.io.shiftValue    
+    io.isLastCol      := gcu.io.isLastCol     
+    io.c2vRamLayerR   := gcu.io.c2vRamLayerR  
+    io.c2vRamLayerW   := gcu.io.c2vRamLayerW  
+    io.v2cFifoIn      := gcu.io.v2cFifoIn     
+    io.vnuCoreEn      := gcu.io.vnuCoreEn     
+    io.vnuCoreCounter := gcu.io.vnuCoreCounter
+    io.v2cFifoOut     := gcu.io.v2cFifoOut    
+    io.cnuCoreEn      := gcu.io.cnuCoreEn     
+    io.cnuCoreCounter := gcu.io.cnuCoreCounter
+    io.reShiftValue   := gcu.io.reShiftValue  
+    io.llrWAddr       := gcu.io.llrWAddr      
   }
 
   // lazy val module = new LDPCDecoderTopImp(this)
-  lazy val module = new LLRAddrGeneratorImp(this)
+  lazy val module = new LDPCDecoderTopImp(this)
 }
 
 object TopMain extends App {

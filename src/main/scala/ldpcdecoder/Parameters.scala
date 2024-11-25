@@ -16,7 +16,7 @@ case class DecParameters
   MaxDegreeOfCNU: Int = 19,
 
   DelayOfShifter: Int = 3,
-  DelayOfVNU: Int = 1,
+  DelayOfVNU: Int = 2,
   DelayOfCNU: Int = 2,
 
   BG1NumAtLayer: Seq[Int] = Seq(

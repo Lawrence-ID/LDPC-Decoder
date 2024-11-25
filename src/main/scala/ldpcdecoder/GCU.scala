@@ -77,7 +77,8 @@ class GCU(implicit p: Parameters) extends DecModule{
         val llrRAddr = ValidIO(UInt(log2Ceil(ColNum).W))
         val shiftValue = ValidIO(UInt(log2Ceil(MaxZSize).W))
         val isLastCol = Output(Bool())
-        val c2vRamRLayer = ValidIO(UInt(log2Ceil(LayerNum).W))
+        val c2vRamLayerR = ValidIO(UInt(log2Ceil(LayerNum).W))
+        val c2vRamLayerW = ValidIO(UInt(log2Ceil(LayerNum).W))
         val v2cFifoIn = Output(Bool())
         val vnuCoreEn = Output(Bool())
         val vnuCoreCounter = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
@@ -111,18 +112,18 @@ class GCU(implicit p: Parameters) extends DecModule{
     val delay2LastCol = DelayN(io.isLastCol, 2)
     val delay3LastCol = DelayN(io.isLastCol, 3)
 
-    val c2vRamRLayer = RegInit(0.U(log2Ceil(LayerNum).W))
-    when(c2vRamRLayer === (LayerNum - 1).U){
-        c2vRamRLayer := 0.U
+    val c2vRamLayerR = RegInit(0.U(log2Ceil(LayerNum).W))
+    when(c2vRamLayerR === (LayerNum - 1).U){
+        c2vRamLayerR := 0.U
     }.otherwise{
-        c2vRamRLayer := RegEnable(c2vRamRLayer + 1.U, delay2LastCol)
+        c2vRamLayerR := RegEnable(c2vRamLayerR + 1.U, delay2LastCol)
     }
 
-    io.c2vRamRLayer.valid := DelayN(io.llrRAddr.valid, DelayOfShifter - 1)
-    io.c2vRamRLayer.bits := c2vRamRLayer
+    io.c2vRamLayerR.valid := DelayN(io.llrRAddr.valid, DelayOfShifter - 1)
+    io.c2vRamLayerR.bits := c2vRamLayerR
 
-    val vnuCoreBegin = DelayN(io.llrRAddr.valid, DelayOfShifter + DelayOfVNU - 1)
-    val vnuCoreDone = DelayN(vnuCoreBegin, DelayOfVNU - 1)
+    val vnuCoreBegin = DelayN(io.llrRAddr.valid, DelayOfShifter)
+    val vnuCoreDone = DelayN(io.llrRAddr.valid, DelayOfShifter + DelayOfVNU - 1)
     val vnuCoreCounter = RegInit(0.U(log2Ceil(MaxDegreeOfCNU).W))
     when(vnuCoreBegin){
         when(delay3LastCol){
@@ -170,11 +171,14 @@ class GCU(implicit p: Parameters) extends DecModule{
     io.cnuCoreEn := cnuCoreBegin
     io.cnuCoreCounter := cnuCoreCounter
 
-    io.reShiftValue.valid := DelayN(cnuCoreBegin, DelayOfCNU)
+    io.c2vRamLayerW.valid := cnuCoreBegin
+    io.c2vRamLayerW.bits := cnuLayerCounter
+
+    io.reShiftValue.valid := DelayN(cnuCoreBegin, DelayOfCNU - 1)
     shiftValueGenerator.io.reShiftEn := io.reShiftValue.valid
     io.reShiftValue.bits := shiftValueGenerator.io.reShiftValue
 
-    val reShifterDone = DelayN(cnuCoreBegin, DelayOfCNU + DelayOfShifter)
+    val reShifterDone = DelayN(cnuCoreBegin, DelayOfCNU - 1 + DelayOfShifter)
 
     llrAddrGenerator.io.wen := reShifterDone
     io.llrWAddr.valid := reShifterDone

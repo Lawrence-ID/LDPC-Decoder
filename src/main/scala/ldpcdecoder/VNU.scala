@@ -5,14 +5,14 @@ import chisel3.util._
 import org.chipsalliance.cde.config.Parameters
 import utility._
 
-class VNUCoreInput (implicit p: Parameters) extends DecBundle{
+class VNUCoreInput(implicit p: Parameters) extends DecBundle{
     val en = Bool()
     val c2vMsg = UInt(C2VMsgBits.W)
     val counter = UInt(log2Ceil(MaxDegreeOfCNU).W)
     val shiftedLLR = SInt(LLRBits.W)
 }
 
-class VNUCoreOutput (implicit p: Parameters) extends DecBundle{
+class VNUCoreOutput(implicit p: Parameters) extends DecBundle{
     val v2cMsg = SInt((LLRBits + 1).W) // fifo data
     val gsgn = UInt(1.W)
     val min0 = UInt(LLRBits.W)
@@ -106,13 +106,14 @@ class VNUsInput(implicit p: Parameters) extends DecBundle{
 }
 
 class VNUsOutput(implicit p: Parameters) extends DecBundle{
-    val v2cMsgValid = Bool() // Mc2vFifo en
-    val v2cMsg = Vec(MaxZSize, SInt((LLRBits + 1).W)) // Mc2vFifo data, Each row in a layer
+    val v2cMsgValid = Bool() // Mv2cFifo en
+    val v2cMsg = Vec(MaxZSize, SInt((LLRBits + 1).W)) // Mv2cFifo data, Each row in a layer
     val vnuLayerDone = Bool() // fifo in en
     val gsgn = Vec(MaxZSize, UInt(1.W))
     val min0 = Vec(MaxZSize, UInt(LLRBits.W))
     val min1 = Vec(MaxZSize, UInt(LLRBits.W))
     val idx0 = Vec(MaxZSize, UInt(log2Ceil(MaxDegreeOfCNU).W))
+    val v2cLayerMsg = Vec(MaxZSize, UInt((1 + LLRBits + LLRBits + log2Ceil(MaxDegreeOfCNU)).W))
 }
 
 class VNUsIO(implicit p: Parameters) extends DecBundle{
@@ -142,5 +143,6 @@ class VNUs(implicit p: Parameters) extends DecModule {
         io.out.min0(i) := vnuCores(i).io.out.min0
         io.out.min1(i) := vnuCores(i).io.out.min1
         io.out.idx0(i) := vnuCores(i).io.out.idx0
+        io.out.v2cLayerMsg(i) := Cat(vnuCores(i).io.out.idx0, vnuCores(i).io.out.min1, vnuCores(i).io.out.min0, vnuCores(i).io.out.gsgn)
     }
 }

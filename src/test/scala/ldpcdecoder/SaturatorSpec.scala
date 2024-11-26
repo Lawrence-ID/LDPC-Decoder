@@ -46,7 +46,7 @@ class SaturatorSpec extends AnyFlatSpec with ChiselScalatestTester {
         for(i <- begin to end){
             c.io.in.poke(i.S)
             c.clock.step()
-            println(s"in = $i, out = ${c.io.out.peek().litValue}")
+            // println(s"in = $i, out = ${c.io.out.peek().litValue}")
             c.io.out.expect(if(i > maxVal) maxVal.S else if(i < minVal) minVal.S else i.S)
         }
     }

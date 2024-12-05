@@ -17,7 +17,7 @@ class ScalaCyclicShifter(){
 
     def setInput(inputLLR: Seq[Int], inputZSize: Int, inputShiftSize: Int): Unit = {
         require(inputLLR.length <= 384, s"Input LLRs num must less than MaxZSize=384")
-        require(inputShiftSize > 0 && inputShiftSize <= inputZSize, s"0 < shiftSize <= zSize < MaxZSize")
+        require(inputShiftSize > 0 , s"0 < shiftSize < MaxZSize")
         this.llr = inputLLR
         this.zSize = inputZSize
         this.shiftSize = inputShiftSize
@@ -57,9 +57,9 @@ class CyclicShifterSpec extends AnyFlatSpec with ChiselScalatestTester with Matc
         val LLRBits: Int = 6
 
         test(new CyclicShifter(shiftLeft=true)) { c =>
-            val inSeq = Seq(10, 35, 19, 20, 7, 55, 23)
-            val zSize = 7
-            val shiftSize = 4
+            val inSeq = Seq(0, 1, 2, 3, 4, 5, 6)
+            val zSize = 3
+            val shiftSize = 307
 
             goldenModel.setInput(inSeq, zSize, shiftSize)
             goldenModel.poke(true)

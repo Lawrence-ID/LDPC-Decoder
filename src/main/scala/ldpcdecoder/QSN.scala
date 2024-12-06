@@ -8,7 +8,7 @@ import org.chipsalliance.cde.config.Parameters
 class QSNInput(implicit p: Parameters) extends DecBundle{
   val srcData = UInt(MaxZSize.W)
   val zSize = UInt(log2Ceil(MaxZSize).W)
-  val shiftSize = UInt(log2Ceil(MaxZSize).W)
+  val shiftSize = UInt(log2Ceil(MaxZSize).W) // need to ensure shiftSize <= zSize
 }
 
 /* 
@@ -28,7 +28,7 @@ class QSN(val shiftLeft: Boolean = true)(implicit p: Parameters) extends DecModu
   val s0_valid = io.in.valid
   val s0_zSize = io.in.bits.zSize
   val s0_srcData = io.in.bits.srcData
-  val s0_shiftSize = io.in.bits.shiftSize % io.in.bits.zSize // TODO: optimize
+  val s0_shiftSize = io.in.bits.shiftSize
 
   val s0_mask = (1.U << s0_zSize) - 1.U
   val s0_maskedInput = s0_srcData & s0_mask

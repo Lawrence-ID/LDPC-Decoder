@@ -124,11 +124,11 @@ class VNUs(implicit p: Parameters) extends DecModule {
 
     val vnuCores = Seq.fill(MaxZSize)(Module(new VNUCore))
 
-    val Zc1H = UIntToOH(io.in.zSize, MaxZSize)
+    val bitMask = (1.U << io.in.zSize) - 1.U
 
     vnuCores.zipWithIndex.foreach {
         case (core, i) => 
-            core.io.in.en           := Zc1H(i) && io.in.en
+            core.io.in.en           := bitMask(i) && io.in.en
             core.io.in.v2cSignOld   := io.in.v2cSignOld(i)
             core.io.in.c2vRowMsgOld := io.in.c2vRowMsgOld(i)
             core.io.in.counter      := io.in.counter

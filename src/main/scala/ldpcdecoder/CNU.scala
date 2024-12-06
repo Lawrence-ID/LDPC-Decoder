@@ -87,11 +87,11 @@ class CNUs(implicit p: Parameters) extends DecModule {
 
     val cnuCores = Seq.fill(MaxZSize)(Module(new CNUCore))
 
-    val Zc1H = UIntToOH(io.in.zSize, MaxZSize)
+    val bitMask = (1.U << io.in.zSize) - 1.U
 
     cnuCores.zipWithIndex.foreach {
         case (core, i) => 
-            core.io.in.en      := Zc1H(i) && io.in.en
+            core.io.in.en      := bitMask(i) && io.in.en
             core.io.in.counter := io.in.counter
             core.io.in.v2cMsg  := io.in.v2cMsg(i)
             core.io.in.gsgn    := io.in.c2vRowMsg(i).gsgn

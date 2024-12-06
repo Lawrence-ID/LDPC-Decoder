@@ -59,8 +59,8 @@ class LDPCDecoderTop ()(implicit p: Parameters) extends LazyModule with HasDecPa
         val llrOut = Output(Vec(MaxZSize, UInt(LLRBits.W)))
     })
 
-    val cyclicShifter = Module(new CyclicShifter(false))
-    val reCyclicShifter = Module(new CyclicShifter(true))
+    val cyclicShifter = Module(new CyclicShifter(true))
+    val reCyclicShifter = Module(new CyclicShifter(false))
     val vnus = Module(new VNUs)
     val cnus = Module(new CNUs)
     val GCU = Module(new GCU)

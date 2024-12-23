@@ -30,7 +30,8 @@ class QSN(val shiftLeft: Boolean = true)(implicit p: Parameters) extends DecModu
   val s0_srcData = io.in.bits.srcData
   val s0_shiftSize = io.in.bits.shiftSize
 
-  val s0_mask = (1.U << s0_zSize) - 1.U
+  val s0_mask = WireInit(0.U(MaxZSize.W))
+  s0_mask := (1.U << s0_zSize) - 1.U
   val s0_maskedInput = s0_srcData & s0_mask
 
   // stage 1
@@ -41,11 +42,12 @@ class QSN(val shiftLeft: Boolean = true)(implicit p: Parameters) extends DecModu
   val s1_srcData = RegEnable(s0_srcData, 0.U, s0_valid)
   val s1_mask = RegEnable(s0_mask, 0.U, s0_valid)
 
-  val s1_result = if (shiftLeft) {
+  val s1_result = WireInit(0.U(MaxZSize.W))
+  s1_result := (if (shiftLeft) {
     (s1_maskedInput >> s1_shiftSize) | (s1_maskedInput << (s1_zSize - s1_shiftSize))
   } else {
     (s1_maskedInput << s1_shiftSize) | (s1_maskedInput >> (s1_zSize - s1_shiftSize))
-  }
+  })
 
   // stage 2
   val s2_valid = RegNext(s1_valid, false.B)
@@ -53,7 +55,8 @@ class QSN(val shiftLeft: Boolean = true)(implicit p: Parameters) extends DecModu
   val s2_mask = RegEnable(s1_mask, 0.U, s1_valid)
   val s2_shifted = RegEnable(s1_result, 0.U, s1_valid)
 
-  val s2_result = (s2_srcData & ~s2_mask) | (s2_shifted & s2_mask)
+  val s2_result = WireInit(0.U(MaxZSize.W))
+  s2_result := (s2_srcData & ~s2_mask) | (s2_shifted & s2_mask)
 
   // stage 3 (Output valid)
   val s3_valid = RegNext(s2_valid, false.B)

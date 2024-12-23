@@ -77,6 +77,7 @@ class ShiftValueGenerator(implicit p: Parameters) extends DecModule{
 
 class GCU(implicit p: Parameters) extends DecModule{
     val io = IO(new Bundle{
+        val llrInitDone = Input(Bool())
         val llrRAddr = ValidIO(UInt(log2Ceil(ColNum).W))
         val shiftValue = ValidIO(UInt(log2Ceil(MaxZSize).W))
         val llrRIsLastCol = Output(Bool())
@@ -183,7 +184,7 @@ class GCU(implicit p: Parameters) extends DecModule{
 
     val cnuCoreBegin = RegInit(false.B)
     val cnuCoreDone = DelayN(cnuCoreBegin, DelayOfCNU)
-    when(vnuLayerScoreBoard(cnuLayerCounter) && !cnuCoreBegin){
+    when(vnuLayerScoreBoard(cnuLayerCounter) && !cnuCoreBegin && !cnuLastLayerDone){
         cnuCoreBegin := true.B
     }.elsewhen(cnuCoreBegin && cnuCoreCounter === numAtLayer(cnuLayerCounter) - 1.U){
         cnuCoreBegin := false.B
@@ -234,6 +235,6 @@ class GCU(implicit p: Parameters) extends DecModule{
         colScoreBoard(io.llrWAddr.bits) := true.B
     }
 
-    llrAddrGenerator.io.ren := colScoreBoard(llrAddrGenerator.io.llrRAddr) && !vnuLastLayerDone && !cnuLastLayerDone && !(vnuLayerCounter === (LayerNum - 1).U && delay3LastCol)
+    llrAddrGenerator.io.ren := io.llrInitDone && colScoreBoard(llrAddrGenerator.io.llrRAddr) && !vnuLastLayerDone && !cnuLastLayerDone && !(vnuLayerCounter === (LayerNum - 1).U && delay3LastCol)
 
 }

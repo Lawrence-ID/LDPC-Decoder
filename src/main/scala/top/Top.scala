@@ -34,6 +34,7 @@ class LDPCDecoderTop ()(implicit p: Parameters) extends LazyModule with HasDecPa
     val io = IO(new Bundle{
         // Input
         val zSize             = Input(UInt(log2Ceil(MaxZSize).W))
+        val llrInit           = Input(Bool())
         val llrIn             = Input(Vec(MaxZSize, UInt(LLRBits.W)))
 
         // Output
@@ -59,6 +60,15 @@ class LDPCDecoderTop ()(implicit p: Parameters) extends LazyModule with HasDecPa
         val llrOut = Output(Vec(MaxZSize, UInt(LLRBits.W)))
     })
 
+    // =====================RAMs and Fifos Definition=====================
+    val LLRRAM = Module(new SRAMTemplate(
+      Vec(MaxZSize, UInt(LLRBits.W)),
+      set = ColNum,
+      singlePort = false, // need read and write port both
+      bypassWrite = true, 
+      withClockGate = true
+    ))
+    
     val cyclicShifter = Module(new CyclicShifter(true))
     val reCyclicShifter = Module(new CyclicShifter(false))
     val vnus = Module(new VNUs)
@@ -78,10 +88,34 @@ class LDPCDecoderTop ()(implicit p: Parameters) extends LazyModule with HasDecPa
     val Mv2cFifo = Module(new Queue(Vec(MaxZSize, SInt((LLRBits + 1).W)), 20))
     val DecoupledFifo = Module(new Queue(Vec(MaxZSize, new C2VMsgInfo), 2))
 
-    cyclicShifter.io.in.valid          := io.shiftValue.valid // shift en
-    cyclicShifter.io.in.bits.llr       := io.llrIn            // need to be read from llrRam
+    // =====================Logic and wire connection=====================
+    val llrRAMRData = LLRRAM.io.r(GCU.io.llrRAddr.valid, GCU.io.llrRAddr.bits).resp.data(0)
+    
+    val llrInitDoneReg = RegInit(false.B)
+    val llrInitCounter = RegInit(0.U(log2Ceil(ColNum).W))
+    when(llrInitCounter === (ColNum - 1).U){
+      llrInitDoneReg := true.B
+    }
+    when(io.llrInit && !llrInitDoneReg){
+      llrInitCounter := llrInitCounter + 1.U
+    }
+
+    val llrRAMWAddr = Mux(io.llrInit && !llrInitDoneReg, llrInitCounter, GCU.io.llrWAddr.bits)
+    val llrRAMWData = Mux(io.llrInit && !llrInitDoneReg, io.llrIn, reCyclicShifter.io.out.bits)
+    
+    LLRRAM.io.w(
+      valid = GCU.io.llrWAddr.valid || (io.llrInit && !llrInitDoneReg),
+      data = llrRAMWData,
+      setIdx = llrRAMWAddr,
+      waymask = 1.U
+    )
+
+    GCU.io.llrInitDone := llrInitDoneReg
+
+    cyclicShifter.io.in.valid          := GCU.io.shiftValue.valid // shift en
+    cyclicShifter.io.in.bits.llr       := llrRAMRData          // need to be read from llrRam
     cyclicShifter.io.in.bits.zSize     := io.zSize
-    cyclicShifter.io.in.bits.shiftSize := io.shiftValue.bits
+    cyclicShifter.io.in.bits.shiftSize := GCU.io.shiftValue.bits
     cyclicShifter.io.out.ready := GCU.io.vnuCoreEn
 
     // VNUs Input

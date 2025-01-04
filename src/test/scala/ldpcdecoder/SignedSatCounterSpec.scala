@@ -50,7 +50,7 @@ class ScalaSignedSatCounter(len: Int) {
     value = math.max(math.min(updated, maxValue), minValue)
 
     // 打印调试信息
-    println(s"umask: $umask, deltaType: $deltaType, finalDelta: $finalDelta, updated value: $value")
+    // println(s"umask: $umask, deltaType: $deltaType, finalDelta: $finalDelta, updated value: $value")
   }
 
   /**

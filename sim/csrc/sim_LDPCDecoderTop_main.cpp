@@ -25,6 +25,7 @@ VerilatedVcdC *tfp = new VerilatedVcdC;
 int8_t llr_in[MAX_COL][MAX_Zc];
 int Zc = 3;
 int BG = 1;
+int llrWrLayer = 0;
 
 void step(){
     contextp->timeInc(1);
@@ -33,7 +34,16 @@ void step(){
     tfp->dump(contextp->time());
 }
 
-void printLLRRAM(int BG, FILE *file){
+int to6BitSigned(int value) {
+    assert(0 <= value && value <= 63);
+    if (value >= 0 && value <= 31) {
+        return value; // 0到31直接输出
+    } else {
+        return value - 64; 
+    }
+}
+
+void printLLRRAM(int llrWrLayer, int BG, int Zc, FILE *file){
     int colNum = BG == 1 ? 68 : 52;
     int8_t llrRAM[MAX_COL * MAX_Zc];
     int idx = 0;
@@ -53,15 +63,16 @@ void printLLRRAM(int BG, FILE *file){
                 __int128_t shift = 6 * k;
                 uint32_t llr6 = (combined >> shift) & mask;
                 // printf("Extracted 6 bits (block %d): %u\n", k, llr6);
-                llrRAM[idx++] = llr6;
+                llrRAM[idx++] = to6BitSigned(llr6);
             }
         }
     }
 
     // 每行写入384个数，写68行，每68行之后空一行
+    fprintf(file, "layer = %d\n", llrWrLayer);
     for (int row = 0; row < 68; row++) {
-        for (int col = 0; col < 384; col++) {
-            fprintf(file, "%d ", llrRAM[row * 384 + col]);  // 写入当前元素
+        for (int col = 0; col < Zc; col++) {
+            fprintf(file, "%4d ", llrRAM[row * 384 + col]);  // 写入当前元素
         }
         fprintf(file, "\n");  // 每行末尾写入换行符
 
@@ -130,8 +141,10 @@ int main(int argc, char **argv){
     top->reset = 0;
 
     top->io_zSize = Zc;
+
+    int prev_tick_llrWValid = 0;
     
-    for(int i = 0; i < 3000; i++){
+    for(int i = 0; i < 10000; i++){
         if(i > 2 && i < 200) top->io_llrInit = 1;
         else top->io_llrInit = 0;
         top->io_llrIn_0   = llr_in[top->rootp->LDPCDecoderTop__DOT__llrInitCounter][0];
@@ -518,10 +531,12 @@ int main(int argc, char **argv){
         top->io_llrIn_381 = llr_in[top->rootp->LDPCDecoderTop__DOT__llrInitCounter][381];
         top->io_llrIn_382 = llr_in[top->rootp->LDPCDecoderTop__DOT__llrInitCounter][382];
         top->io_llrIn_383 = llr_in[top->rootp->LDPCDecoderTop__DOT__llrInitCounter][383];
-        if (top->rootp->io_llrWAddr_valid == 1 && top->rootp->io_llrWAddr_bits == 0){
+        if (top->rootp->io_llrWAddr_valid == 1 && prev_tick_llrWValid == 0){
             printf("i = %d\n", i);
-            printLLRRAM(BG, llrRAM_file);
+            printLLRRAM(llrWrLayer, BG, Zc, llrRAM_file);
+            llrWrLayer++;
         }
+        prev_tick_llrWValid = top->rootp->io_llrWAddr_valid;
         step();step();
     }
 

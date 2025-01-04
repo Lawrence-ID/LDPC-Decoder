@@ -126,7 +126,7 @@ class GCU(implicit p: Parameters) extends DecModule{
     }
 
     val delay2LastCol = DelayN(llrReadyIsLastCal, 2)
-    val delay3LastCol = DelayN(llrReadyIsLastCal, 3)
+    val delay3LastCol = DelayN(llrReadyIsLastCal, 3) // LastCol value shift done, vnuCoreEnLastCol
 
     val c2vRamRLayer = RegInit(0.U(log2Ceil(LayerNum).W))
     when(io.c2vRamRdReq.valid){
@@ -166,7 +166,7 @@ class GCU(implicit p: Parameters) extends DecModule{
 
     val vnuLayerCounter = RegInit(0.U(log2Ceil(LayerNum).W))
     val vnuLayerScoreBoard = RegInit(VecInit(Seq.fill(LayerNum)(false.B)))
-    when(delay3LastCol && vnuLayerCounter + 1.U === LayerNum.U){
+    when(vnuLastColDone && vnuLayerCounter === LayerNum.U){
         vnuLastLayerDone := true.B
     }
     when(delay3LastCol && !vnuLastLayerDone){
@@ -204,14 +204,25 @@ class GCU(implicit p: Parameters) extends DecModule{
 
     when(cnuCoreBegin && !cnuLastLayerDone){
         when(cnuCoreCounter === numAtLayer(cnuLayerCounter) - 1.U){
-            when(cnuLayerCounter + 1.U === LayerNum.U){
-                cnuLastLayerDone := true.B
-            }
+            // when(cnuLayerCounter + 1.U === LayerNum.U){
+            //     cnuLastLayerDone := true.B
+            // }
             cnuLayerCounter := cnuLayerCounter + 1.U
             cnuCoreCounter := 0.U
         }.otherwise{
             cnuCoreCounter := cnuCoreCounter + 1.U
         }
+    }
+
+    val cnuLastColDone = RegInit(false.B) // cnu LastCol calc done
+    when(cnuLastColDone){
+        cnuLastColDone := false.B
+    }.elsewhen(cnuCoreBegin && cnuCoreCounter === numAtLayer(cnuLayerCounter) - 1.U){
+        cnuLastColDone := true.B
+    }
+
+    when(cnuLastColDone && cnuLayerCounter === LayerNum.U){
+        cnuLastLayerDone := true.B
     }
 
     io.decoupledFifoOut := cnuCoreCounter === numAtLayer(cnuLayerCounter) - 1.U && !cnuLastLayerDone
@@ -227,7 +238,8 @@ class GCU(implicit p: Parameters) extends DecModule{
 
     val reShifterDone = DelayN(cnuCoreBegin, DelayOfCNU + DelayOfShifter)
 
-    llrAddrGenerator.io.wen := reShifterDone && !cnuLastLayerDone
+    val llrLastLayerWriteDone = DelayN(cnuLastLayerDone, 1 + DelayOfShifter)
+    llrAddrGenerator.io.wen := reShifterDone && !llrLastLayerWriteDone
     io.llrWAddr.valid := llrAddrGenerator.io.wen
     io.llrWAddr.bits := llrAddrGenerator.io.llrWAddr
 

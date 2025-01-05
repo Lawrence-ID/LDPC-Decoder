@@ -162,18 +162,20 @@ class GCU(implicit p: Parameters) extends DecModule{
     io.v2cSignRamRdReq.valid := v2cSignRamRen
     io.v2cSignRamRdReq.bits := v2cSignRamRcounter
 
-    val vnuLastColDone = DelayN(delay3LastCol, DelayOfVNU - 1).suggestName("vnuLastColDone")
+    val vnuLastColStage0 = delay3LastCol
+    val vnuLastColStage1 = DelayN(delay3LastCol, DelayOfVNU - 1).suggestName("vnuLastColStage1")
+    val vnuLastColStage2 = DelayN(delay3LastCol, DelayOfVNU).suggestName("vnuLastColStage2")
 
     val vnuLayerCounter = RegInit(0.U(log2Ceil(LayerNum).W))
     val vnuLayerScoreBoard = RegInit(VecInit(Seq.fill(LayerNum)(false.B)))
-    when(vnuLastColDone && vnuLayerCounter === LayerNum.U){
+    when(vnuLastColStage1 && vnuLayerCounter === LayerNum.U){
         vnuLastLayerDone := true.B
     }
     when(delay3LastCol && !vnuLastLayerDone){
         vnuLayerCounter := vnuLayerCounter + 1.U
         vnuLayerScoreBoard(vnuLayerCounter) := true.B
     }
-    io.decoupledFifoIn := vnuLastColDone
+    io.decoupledFifoIn := vnuLastColStage1
     io.vnuLayerCounter := vnuLayerCounter
 
     // CNU Logic
@@ -214,14 +216,14 @@ class GCU(implicit p: Parameters) extends DecModule{
         }
     }
 
-    val cnuLastColDone = RegInit(false.B) // cnu LastCol calc done
-    when(cnuLastColDone){
-        cnuLastColDone := false.B
+    val cnuLastColStage1 = RegInit(false.B) // cnu LastCol calc done
+    when(cnuLastColStage1){
+        cnuLastColStage1 := false.B
     }.elsewhen(cnuCoreBegin && cnuCoreCounter === numAtLayer(cnuLayerCounter) - 1.U){
-        cnuLastColDone := true.B
+        cnuLastColStage1 := true.B
     }
 
-    when(cnuLastColDone && cnuLayerCounter === LayerNum.U){
+    when(cnuLastColStage1 && cnuLayerCounter === LayerNum.U){
         cnuLastLayerDone := true.B
     }
 

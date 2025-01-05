@@ -2,6 +2,7 @@
 import mill._
 import mill.scalalib._
 import mill.scalalib.publish._
+import scalafmt._
 import mill.define.Sources
 import mill.modules.Util
 import mill.scalalib.TestModule.ScalaTest
@@ -114,7 +115,7 @@ trait LDPCDecoderModule extends ScalaModule{
 
 object LDPCDecoderTop extends Cross[LDPCDecoder]("chisel", "chisel3")
 
-trait LDPCDecoder extends LDPCDecoderModule with HasChisel{
+trait LDPCDecoder extends LDPCDecoderModule with HasChisel with ScalafmtModule{
   override def millSourcePath = os.pwd
   def rocketModule = rocketchip(crossValue)
 

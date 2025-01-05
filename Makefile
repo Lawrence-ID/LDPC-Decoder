@@ -36,3 +36,9 @@ verilog: $(TOP_V)
 
 sim: $(TOP_V)
 	make -j -C $(SIM_DIR) sim
+
+check-format:
+	mill $(TOP)[$(CHISEL_VERSION)].checkFormat
+
+reformat:
+	mill $(TOP)[$(CHISEL_VERSION)].reformat

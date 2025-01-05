@@ -57,14 +57,8 @@ class VNUCore(implicit p: Parameters) extends DecModule {
     val min1 = RegInit(Fill(LLRBits, 1.U(1.W))) 
     val idx0 = RegInit(0.U(log2Ceil(MaxDegreeOfCNU).W))
 
-    when(io.in.en && io.in.counter === 0.U){
-        gsgn := 0.U
-        idx0 := 0.U
-        min0 := Fill(LLRBits, 1.U(1.W))
-        min1 := Fill(LLRBits, 1.U(1.W))
-    }
-
     val enDelayed = RegNext(io.in.en, init = false.B)
+    val counterDelayed = RegEnable(io.in.counter, 0.U(log2Ceil(MaxDegreeOfCNU).W), io.in.en)
 
     val signMagSeperator = Module(new SignMagSep(LLRBits))
     signMagSeperator.io.en := enDelayed
@@ -74,22 +68,25 @@ class VNUCore(implicit p: Parameters) extends DecModule {
     val magnitude = signMagSeperator.io.magnitude 
 
     // printf(p"en_delay: ${signMagSeperator.io.en}, in: ${signMagSeperator.io.in}, sign: ${sign}, magnitude: ${magnitude} \n")
-
-    when(enDelayed) {
-        gsgn := gsgn ^ sign
-        when(magnitude < min0) {
-            min1 := min0
-            min0 := magnitude
-            idx0 := RegNext(io.in.counter, init = 0.U)
-        }.elsewhen(magnitude < min1) {
-            min1 := magnitude
-        }
+    
+    when(io.in.en && io.in.counter === 0.U){
+        gsgn := 0.U
+        idx0 := 0.U
+        min0 := Fill(LLRBits, 1.U(1.W))
+        min1 := Fill(LLRBits, 1.U(1.W))
+    }.elsewhen(enDelayed){
+        gsgn := io.out.gsgn
+        min0 := io.out.min0
+        min1 := io.out.min1
+        idx0 := io.out.idx0
     }
 
-    io.out.gsgn := gsgn
-    io.out.min0 := min0
-    io.out.min1 := min1
-    io.out.idx0 := idx0
+    io.out.gsgn := Mux(enDelayed, gsgn ^ sign, gsgn)
+    io.out.min0 := Mux(enDelayed && magnitude < min0, magnitude, min0)
+    io.out.min1 := Mux(enDelayed && magnitude < min0, min0, 
+                   Mux(enDelayed && magnitude < min1, magnitude, min1))
+    io.out.idx0 := Mux(enDelayed && magnitude < min0, counterDelayed, idx0)
+
 
 }
 

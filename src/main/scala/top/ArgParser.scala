@@ -17,13 +17,12 @@
 package top
 
 import chisel3._
-
+import chisel3.util.log2Up
+import ldpcdecoder._
+import org.chipsalliance.cde.config.Config
+import org.chipsalliance.cde.config.Parameters
 import scala.annotation.tailrec
 import scala.sys.exit
-import chisel3.util.log2Up
-
-import org.chipsalliance.cde.config.{Config, Parameters}
-import ldpcdecoder._
 
 object ArgParser {
   val usage =
@@ -46,27 +45,33 @@ object ArgParser {
   }
 
   def parse(args: Array[String]): (Parameters, Array[String], Array[String]) = {
-    val default = new DefaultConfig(1)
-    var firrtlOpts = Array[String]()
+    val default     = new DefaultConfig(1)
+    var firrtlOpts  = Array[String]()
     var firtoolOpts = Array[String]()
 
     @tailrec
-    def nextOption(config: Parameters, list: List[String]): Parameters = {
+    def nextOption(config: Parameters, list: List[String]): Parameters =
       list match {
         case Nil => config
         case "--help" :: tail =>
-          if(tail == Nil) exit(0)
+          if (tail == Nil) exit(0)
           nextOption(config, tail)
         case "--config" :: confString :: tail =>
           nextOption(getConfigByName(confString), tail)
         case "--llr-bits" :: value :: tail =>
-          nextOption(config.alter((site, here, up) => {
-            case DecParamsKey => up(DecParamsKey).copy(LLRBits = value.toInt)
-          }), tail)
+          nextOption(
+            config.alter((site, here, up) => {
+              case DecParamsKey => up(DecParamsKey).copy(LLRBits = value.toInt)
+            }),
+            tail
+          )
         case "--enable-log" :: tail =>
-          nextOption(config.alter((site, here, up) => {
-            case DebugOptionsKey => up(DebugOptionsKey).copy(EnableDebug = true)
-          }), tail)
+          nextOption(
+            config.alter((site, here, up) => {
+              case DebugOptionsKey => up(DebugOptionsKey).copy(EnableDebug = true)
+            }),
+            tail
+          )
         case "--firtool-opt" :: option :: tail =>
           firtoolOpts ++= option.split(" ").filter(_.nonEmpty)
           nextOption(config, tail)
@@ -83,7 +88,6 @@ object ArgParser {
           firrtlOpts :+= option
           nextOption(config, tail)
       }
-    }
     var config = nextOption(default, args.toList)
     (config, firrtlOpts, firtoolOpts)
   }

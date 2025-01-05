@@ -36,15 +36,14 @@ object ReadAndHold {
  * similar to BoolStopWatch
  */
 object ValidHold {
-  def apply(infire: Bool, outfire: Bool, flush: Bool = false.B ) = {
+  def apply(infire: Bool, outfire: Bool, flush: Bool = false.B) = {
     val valid = RegInit(false.B)
-    when (outfire) { valid := false.B }
-    when (infire) { valid := true.B }
-    when (flush) { valid := false.B } // NOTE: the flush will flush in & out, is that ok?
+    when(outfire)(valid := false.B)
+    when(infire)(valid := true.B)
+    when(flush)(valid := false.B) // NOTE: the flush will flush in & out, is that ok?
     valid
   }
 }
-
 
 /*
  * Hold the 'fire' for only one cycle unless new fire comes in
@@ -52,9 +51,9 @@ object ValidHold {
 object OneCycleValid {
   def apply(fire: Bool, flush: Bool = false.B) = {
     val valid = RegInit(false.B)
-    when (valid) { valid := false.B }
-    when (fire) { valid := true.B }
-    when (flush) { valid := false.B }
+    when(valid)(valid := false.B)
+    when(fire)(valid := true.B)
+    when(flush)(valid := false.B)
     valid
   }
 }
@@ -63,9 +62,8 @@ object OneCycleValid {
  * Hold the data when it is valid and bypass latest data
  */
 object DataHoldBypass {
-  def apply[T <: Data](data: T, valid: Bool): T = {
+  def apply[T <: Data](data: T, valid: Bool): T =
     Mux(valid, data, RegEnable(data, valid))
-  }
 }
 
 /*
@@ -74,8 +72,8 @@ object DataHoldBypass {
 object DataChanged {
   def apply(data: UInt): UInt = {
     val old_data = Reg(chiselTypeOf(data))
-    val changed = data =/= old_data
-    when (changed) { old_data := data }
+    val changed  = data =/= old_data
+    when(changed)(old_data := data)
     changed
   }
 }
@@ -85,7 +83,7 @@ object DataChanged {
   */
 class DelayN[T <: Data](gen: T, n: Int) extends Module {
   val io = IO(new Bundle() {
-    val in = Input(gen)
+    val in  = Input(gen)
     val out = Output(gen)
   })
   var out = io.in
@@ -103,11 +101,11 @@ object DelayN {
   }
 }
 
-class DelayNWithValid[T <: Data](gen: T, n: Int, hasInit: Boolean = true) extends Module{
-  val io = IO(new Bundle(){
-    val in_bits = Input(gen)
-    val in_valid = Input(Bool())
-    val out_bits = Output(gen)
+class DelayNWithValid[T <: Data](gen: T, n: Int, hasInit: Boolean = true) extends Module {
+  val io = IO(new Bundle() {
+    val in_bits   = Input(gen)
+    val in_valid  = Input(Bool())
+    val out_bits  = Output(gen)
     val out_valid = Output(Bool())
   })
   val (res_valid, res_bits) = (0 until n).foldLeft((io.in_valid, io.in_bits)) {
@@ -122,41 +120,41 @@ class DelayNWithValid[T <: Data](gen: T, n: Int, hasInit: Boolean = true) extend
       (valid, data)
   }
   io.out_valid := res_valid
-  io.out_bits := res_bits
+  io.out_bits  := res_bits
 }
 
-object DelayNWithValid{
+object DelayNWithValid {
   def apply[T <: Data](in: T, valid: Bool, n: Int): (Bool, T) = {
     val pipMod = Module(new DelayNWithValid(chiselTypeOf(in), n))
     pipMod.io.in_valid := valid
-    pipMod.io.in_bits := in
+    pipMod.io.in_bits  := in
     (pipMod.io.out_valid, pipMod.io.out_bits)
   }
 
   def apply[T <: Valid[Data]](in: T, n: Int): T = {
     val pipMod = Module(new DelayNWithValid(chiselTypeOf(in.bits), n))
     pipMod.io.in_valid := in.valid
-    pipMod.io.in_bits := in.bits
+    pipMod.io.in_bits  := in.bits
     val res = Wire(chiselTypeOf(in))
     res.valid := pipMod.io.out_valid
-    res.bits := pipMod.io.out_bits
+    res.bits  := pipMod.io.out_bits
     res
   }
 
   def apply[T <: Data](in: T, valid: Bool, n: Int, hasInit: Boolean): (Bool, T) = {
     val pipMod = Module(new DelayNWithValid(chiselTypeOf(in), n, hasInit = hasInit))
     pipMod.io.in_valid := valid
-    pipMod.io.in_bits := in
+    pipMod.io.in_bits  := in
     (pipMod.io.out_valid, pipMod.io.out_bits)
   }
 
   def apply[T <: Valid[Data]](in: T, n: Int, hasInit: Boolean): T = {
     val pipMod = Module(new DelayNWithValid(chiselTypeOf(in.bits), n, hasInit = hasInit))
     pipMod.io.in_valid := in.valid
-    pipMod.io.in_bits := in.bits
+    pipMod.io.in_bits  := in.bits
     val res = Wire(chiselTypeOf(in))
     res.valid := pipMod.io.out_valid
-    res.bits := pipMod.io.out_bits
+    res.bits  := pipMod.io.out_bits
     res
   }
 }

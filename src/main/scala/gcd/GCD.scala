@@ -2,9 +2,9 @@
 
 package gcd
 
-import chisel3._
 // _root_ disambiguates from package chisel3.util.circt if user imports chisel3.util._
 import _root_.circt.stage.ChiselStage
+import chisel3._
 
 /**
   * Compute GCD using subtraction method.
@@ -20,18 +20,18 @@ class GCD extends Module {
     val outputValid   = Output(Bool())
   })
 
-  val x  = Reg(UInt())
-  val y  = Reg(UInt())
+  val x = Reg(UInt())
+  val y = Reg(UInt())
 
-  when(x > y) { x := x - y }
-    .otherwise { y := y - x }
+  when(x > y)(x := x - y)
+    .otherwise(y := y - x)
 
   when(io.loadingValues) {
     x := io.value1
     y := io.value2
   }
 
-  io.outputGCD := x
+  io.outputGCD   := x
   io.outputValid := y === 0.U
 }
 

@@ -119,7 +119,7 @@ class VNUCoreSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
         val MaxZSize: Int = 384
         val LLRBits: Int = 6
         val MaxDegreeOfCNU: Int = 19
-        val C2VRowMsgBits: Int = 1 + 2 * (LLRBits - 1) + log2Ceil(MaxDegreeOfCNU)
+        val C2VRowMsgBits: Int = 1 + 2 * (LLRBits - 3) + log2Ceil(MaxDegreeOfCNU)
 
         test(new VNUCore()) { c =>
             // Generate random input values

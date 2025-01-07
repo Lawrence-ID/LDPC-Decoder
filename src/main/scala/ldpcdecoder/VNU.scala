@@ -31,11 +31,11 @@ class VNUCore(implicit p: Parameters) extends DecModule {
 
   // Stage 0
   val gsgnOld = io.in.c2vRowMsgOld(0).asUInt
-  val min0Old = io.in.c2vRowMsgOld(5, 1).asUInt  // (LLRBits - 1) bits
-  val min1Old = io.in.c2vRowMsgOld(10, 6).asUInt // (LLRBits - 1) bits
-  val idx0Old = io.in.c2vRowMsgOld(15, 11).asUInt
+  val min0Old = io.in.c2vRowMsgOld(C2VMsgMagWidth, 1).asUInt
+  val min1Old = io.in.c2vRowMsgOld(2 * C2VMsgMagWidth, 1 + C2VMsgMagWidth).asUInt
+  val idx0Old = io.in.c2vRowMsgOld(2 * C2VMsgMagWidth + log2Ceil(MaxDegreeOfCNU), 1 + 2 * C2VMsgMagWidth).asUInt
 
-  val signMagCombinator = Module(new SignMagCmb(LLRBits - 1))
+  val signMagCombinator = Module(new SignMagCmb(LLRBits - 3))
   signMagCombinator.io.en        := io.in.en
   signMagCombinator.io.sign      := gsgnOld ^ io.in.v2cSignOld
   signMagCombinator.io.magnitude := Mux(idx0Old === io.in.counter, min1Old, min0Old)

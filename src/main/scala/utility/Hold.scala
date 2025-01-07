@@ -39,8 +39,8 @@ object ValidHold {
   def apply(infire: Bool, outfire: Bool, flush: Bool = false.B) = {
     val valid = RegInit(false.B)
     when(outfire)(valid := false.B)
-    when(infire)(valid := true.B)
-    when(flush)(valid := false.B) // NOTE: the flush will flush in & out, is that ok?
+    when(infire)(valid  := true.B)
+    when(flush)(valid   := false.B) // NOTE: the flush will flush in & out, is that ok?
     valid
   }
 }
@@ -52,7 +52,7 @@ object OneCycleValid {
   def apply(fire: Bool, flush: Bool = false.B) = {
     val valid = RegInit(false.B)
     when(valid)(valid := false.B)
-    when(fire)(valid := true.B)
+    when(fire)(valid  := true.B)
     when(flush)(valid := false.B)
     valid
   }

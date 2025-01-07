@@ -112,11 +112,12 @@ int main(int argc, char **argv){
     }
     printf("total llr data line = %d\n", total_lines);
 #else
+    int sequence[] = {0, 1, 2, 3, 4, 5, 6, 7, -1, -2, -3, -4, -5, -6, -7, -8};
     int cnt = 0;
     for(int l = 0; l < MAX_COL; l++){
         for(int i = 0; i < MAX_Zc; i++){
             if (i < Zc) {
-                llr_in[l][i] = (cnt % 64);
+                llr_in[l][i] = (sequence[cnt % 16] & 0x3f); // input value [-8, 7]
                 cnt++;
             }
         }

@@ -30,8 +30,8 @@ class CNUCore(implicit p: Parameters) extends DecModule {
   val io = IO(new CNUCoreIO())
 
   // Stage 0
-  val satMin0 = UnsignedSaturator(io.in.min0, LLRBits, LLRBits - 1)
-  val satMin1 = UnsignedSaturator(io.in.min1, LLRBits, LLRBits - 1)
+  val satMin0 = UnsignedSaturator(io.in.min0, LLRBits, LLRBits - 3)
+  val satMin1 = UnsignedSaturator(io.in.min1, LLRBits, LLRBits - 3)
 
   io.out.c2vMsg := Cat(io.in.idx0, satMin1, satMin0, io.in.gsgn)
 

@@ -532,7 +532,7 @@ int main(int argc, char **argv){
         top->io_llrIn_381 = llr_in[top->rootp->LDPCDecoderTop__DOT__llrInitCounter][381];
         top->io_llrIn_382 = llr_in[top->rootp->LDPCDecoderTop__DOT__llrInitCounter][382];
         top->io_llrIn_383 = llr_in[top->rootp->LDPCDecoderTop__DOT__llrInitCounter][383];
-        if (top->rootp->io_llrWAddr_valid == 1 && prev_tick_llrWValid == 0){
+        if (top->rootp->io_llrWAddr_valid == 0 && prev_tick_llrWValid == 1){
             printf("i = %d\n", i);
             printLLRRAM(llrWrLayer, BG, Zc, llrRAM_file);
             llrWrLayer++;

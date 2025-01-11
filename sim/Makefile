@@ -24,6 +24,8 @@ VSRC = $(shell find $(abspath ../build/rtl) -name "*.v" -or -name "*.sv")
 CSRC = $(shell find $(abspath ./csrc) -name "*.c" -or -name "*.cc" -or -name "*.cpp")
 LIBS += $(shell llvm-config --libs --ldflags --system-libs)
 
+SIM_TRACE ?= VCD
+
 SIM_BUILD_DIR = $(abspath ./build)
 SIM_BIN = $(abspath $(SIM_BUILD_DIR)/SIM_$(TOP_MODULE_NAME))
 OBJ_DIR = $(abspath $(SIM_BUILD_DIR)/obj_dir)
@@ -42,7 +44,14 @@ VERILATOR_FLAGS +=
 # Timescale and timing
 VERILATOR_FLAGS += --timescale "1ns/1ns" --no-timing
 # Make waveforms
-# VERILATOR_FLAGS += --trace
+ifeq ($(SIM_TRACE), VCD)
+VERILATOR_FLAGS += --trace
+WAVE_FILE = wave.vcd
+else ifeq ($(SIM_TRACE), FST)
+VERILATOR_FLAGS += --trace-fst
+CFLAGS += -DTRACE_AS_FST
+WAVE_FILE = wave.fst
+endif
 # Check SystemVerilog assertions
 # VERILATOR_FLAGS += --assert
 # Generate coverage analysis
@@ -67,7 +76,7 @@ LDFLAGS += $(LIBS) -fPIC
 sim:
 	@echo "-- VERILATE ----------------"
 	rm -rf $(OBJ_DIR)
-	$(VERILATOR) --trace -Wno-fatal $(VERILATOR_FLAGS) \
+	$(VERILATOR) $(VERILATOR_FLAGS) -Wno-fatal $(VERILATOR_FLAGS) \
 		--top-module $(TOP_MODULE_NAME) $(VERILATOR_SIM_INPUT) \
 	    $(addprefix -CFLAGS , $(CFLAGS)) $(addprefix -LDFLAGS , $(LDFLAGS)) \
 		 $(VERILATOR_SIM_OUTPUT)
@@ -95,9 +104,9 @@ sim:
 
 	@echo
 	@echo "-- DONE --------------------"
-	@echo "To see waveforms in a waveform viewer, run: gtkwave $(OBJ_DIR)/wave.vcd"
+	@echo "To see waveforms in a waveform viewer, run: gtkwave $(OBJ_DIR)/$(WAVE_FILE)"
 	@echo
-	# @gtkwave $(OBJ_DIR)/wave.vcd
+	# @gtkwave $(OBJ_DIR)/$(WAVE_FILE)
 
 clean: 
 	rm -rf $(SIM_BUILD_DIR)

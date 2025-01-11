@@ -1,7 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "verilated.h"
+
+#ifdef TRACE_AS_FST
+#include "verilated_fst_c.h"
+#else
 #include "verilated_vcd_c.h"
+#endif
+
 // #include "svdpi.h"
 #include "VLDPCDecoderTop.h"
 // #include "VLDPCDecoderTop__Dpi.h"
@@ -20,7 +26,11 @@
 
 VerilatedContext *contextp = new VerilatedContext;
 VLDPCDecoderTop *top = new VLDPCDecoderTop{contextp};
+#ifdef TRACE_AS_FST
+VerilatedFstC *tfp = new VerilatedFstC;
+#else
 VerilatedVcdC *tfp = new VerilatedVcdC;
+#endif
 
 int8_t llr_in[MAX_COL][MAX_Zc];
 int Zc = 3;
@@ -127,8 +137,11 @@ int main(int argc, char **argv){
     contextp->commandArgs(argc, argv);
     contextp->traceEverOn(true);
     top->trace(tfp, 99);
-
+#ifdef TRACE_AS_FST
+    tfp->open("../sim/build/obj_dir/wave.fst");
+#else
     tfp->open("../sim/build/obj_dir/wave.vcd");
+#endif
 
     FILE * llrRAM_file = fopen("/nfs/home/pengxiao/Projects/LDPC-Decoder/llrRAM.txt", "w");
     if (llrRAM_file == NULL) {
@@ -137,7 +150,7 @@ int main(int argc, char **argv){
     }
 
     top->clock = 1;
-    top->reset = 1; 
+    top->reset = 1;
     step();step();
     top->reset = 0;
 
@@ -145,7 +158,7 @@ int main(int argc, char **argv){
 
     int prev_tick_llrWValid = 0;
     
-    for(int i = 0; i < 10000; i++){
+    for(int i = 0; i < 3000; i++){
         if(i > 2 && i < 200) top->io_llrInit = 1;
         else top->io_llrInit = 0;
         top->io_llrIn_0   = llr_in[top->rootp->LDPCDecoderTop__DOT__llrInitCounter][0];

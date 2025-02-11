@@ -76,7 +76,8 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
 
     val Mc2vRAM = Module(new SRAMTemplate(
       Vec(MaxZSize, UInt(C2VRowMsgBits.W)),
-      set = LayerNum
+      set = LayerNum,
+      holdRead = true
     ))
 
     val Mv2cSignRAM = Module(new SRAMTemplate(

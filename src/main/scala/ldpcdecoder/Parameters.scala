@@ -15,6 +15,7 @@ case class DecParameters(
     DelayOfShifter: Int = 3,
     DelayOfVNU: Int = 2,
     DelayOfCNU: Int = 2,
+    MaxIterNum: Int = 8,
     BG1NumAtLayer: Seq[Int] = Seq(
       19, 19, 19, 19, 3, 8, 9, 7, 10, 9, 7, 8, 7, 6, 7, 7, 6, 6, 6, 6, 6, 6, 5, 5, 6, 5, 5, 4, 5, 5, 5, 5, 5, 5, 5, 5,
       5, 4, 5, 5, 4, 5, 4, 5, 5, 4
@@ -433,4 +434,5 @@ trait HasDecParameter {
   def C2VRowMsgBits  = 1 + 2 * C2VMsgMagWidth + log2Ceil(MaxDegreeOfCNU)
   def MaxEdgeNum     = p(DecParamsKey).BG1ColIdx.length
   def EdgeNum        = if (isBG1) p(DecParamsKey).BG1ColIdx.length else p(DecParamsKey).BG2ColIdx.length
+  def MaxIterNum     = p(DecParamsKey).MaxIterNum
 }

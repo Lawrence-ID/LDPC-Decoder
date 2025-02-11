@@ -54,6 +54,7 @@ int to6BitSigned(int value) {
 }
 
 void printLLRRAM(int llrWrLayer, int BG, int Zc, FILE *file){
+    int rowNum = BG == 1 ? 46 : 42;
     int colNum = BG == 1 ? 68 : 52;
     int8_t llrRAM[MAX_COL * MAX_Zc];
     int idx = 0;
@@ -79,18 +80,26 @@ void printLLRRAM(int llrWrLayer, int BG, int Zc, FILE *file){
     }
 
     // 每行写入384个数，写68行，每68行之后空一行
-    fprintf(file, "layer = %d\n", llrWrLayer);
+    fprintf(file, "it = %d\n", (llrWrLayer / rowNum) + 1);
+    fprintf(file, "l = %d\n", (llrWrLayer % rowNum) + 1);
+    // for (int row = 0; row < 68; row++) {
+    //     for (int col = 0; col < Zc; col++) {
+    //         fprintf(file, "%4d ", llrRAM[row * 384 + col]);  // 写入当前元素
+    //     }
+    //     fprintf(file, "\n");  // 每行末尾写入换行符
+
+    //     // 每68行后插入一个空行
+    //     if (row == 67) {
+    //         fprintf(file, "\n");
+    //     }
+    // }
+    fprintf(file, "llr_ram = ");
     for (int row = 0; row < 68; row++) {
         for (int col = 0; col < Zc; col++) {
-            fprintf(file, "%4d ", llrRAM[row * 384 + col]);  // 写入当前元素
-        }
-        fprintf(file, "\n");  // 每行末尾写入换行符
-
-        // 每68行后插入一个空行
-        if (row == 67) {
-            fprintf(file, "\n");
+            fprintf(file, "%d ", llrRAM[row * 384 + col]);  // 写入当前元素
         }
     }
+    fprintf(file, "\n");
     
 }
 
@@ -158,7 +167,7 @@ int main(int argc, char **argv){
 
     int prev_tick_llrWValid = 0;
     
-    for(int i = 0; i < 3000; i++){
+    for(int i = 0; i < 6000; i++){
         if(i > 2 && i < 200) top->io_llrInit = 1;
         else top->io_llrInit = 0;
         top->io_llrIn_0   = llr_in[top->rootp->LDPCDecoderTop__DOT__llrInitCounter][0];

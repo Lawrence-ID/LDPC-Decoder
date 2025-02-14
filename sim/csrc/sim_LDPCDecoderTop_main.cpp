@@ -164,6 +164,7 @@ int main(int argc, char **argv){
     top->reset = 0;
 
     top->io_zSize = Zc;
+    top->io_isBG1 = 1;
 
     int prev_tick_llrWValid = 0;
     

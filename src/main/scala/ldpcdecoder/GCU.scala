@@ -7,23 +7,39 @@ import utility._
 
 class LLRAddrGenerator(implicit p: Parameters) extends DecModule {
   val io = IO(new Bundle {
+    val isBG1      = Input(Bool())
     val ren        = Input(Bool())
-    val llrRAddr   = Output(UInt(log2Ceil(ColNum).W))
+    val llrRAddr   = Output(UInt(log2Ceil(MaxColNum).W))
     val isLastCol  = Output(Bool())
     val isFirstCol = Output(Bool())
 
     val wen      = Input(Bool())
-    val llrWAddr = Output(UInt(log2Ceil(ColNum).W))
+    val llrWAddr = Output(UInt(log2Ceil(MaxColNum).W))
   })
 
-  val colIdxVec     = VecInit(ColIdxOrder.map(_.U))
-  val isLastColVec  = VecInit(IsLastCol.map(_.B))
-  val isFirstColVec = VecInit(IsFirstCol.map(_.B))
+  val isBG1 = io.isBG1
+
+  assert(BG1ColIdx.length > BG2ColIdx.length)
+
+  val BG2ColIdxPadded = BG2ColIdx.padTo(BG1ColIdx.length, 0)
+  val colIdxVec = Mux(
+    isBG1,
+    VecInit(BG1ColIdx.map(_.U(log2Ceil(MaxColNum).W))),
+    VecInit(BG2ColIdxPadded.map(_.U(log2Ceil(MaxColNum).W)))
+  )
+  val colIdxVecLen = Mux(isBG1, BG1ColIdx.length.U, BG2ColIdx.length.U)
+
+  val BG2IsLastColPadded = BG2IsLastCol.padTo(BG1IsLastCol.length, false)
+  val isLastColVec       = Mux(isBG1, VecInit(BG1IsLastCol.map(_.B)), VecInit(BG2IsLastColPadded.map(_.B)))
+
+  val BG2IsFirstColPadded = BG2IsFirstCol.padTo(BG1IsFirstCol.length, false)
+  val isFirstColVec       = Mux(isBG1, VecInit(BG1IsFirstCol.map(_.B)), VecInit(BG2IsFirstColPadded.map(_.B)))
+
   assert(colIdxVec.length == isLastColVec.length)
 
-  val rcounter = RegInit(0.U(log2Ceil(ColIdxOrder.length).W))
+  val rcounter = RegInit(0.U(log2Ceil(MaxColIdxVecLen).W))
   when(io.ren === 1.U) {
-    when(rcounter === (ColIdxOrder.length - 1).U) {
+    when(rcounter === colIdxVecLen - 1.U) {
       rcounter := 0.U
     }.otherwise {
       rcounter := rcounter + 1.U
@@ -33,9 +49,9 @@ class LLRAddrGenerator(implicit p: Parameters) extends DecModule {
   io.isLastCol  := isLastColVec(rcounter)
   io.isFirstCol := isFirstColVec(rcounter)
 
-  val wcounter = RegInit(0.U(log2Ceil(ColIdxOrder.length).W))
+  val wcounter = RegInit(0.U(log2Ceil(MaxColIdxVecLen).W))
   when(io.wen === 1.U) {
-    when(wcounter === (ColIdxOrder.length - 1).U) {
+    when(wcounter === colIdxVecLen - 1.U) {
       wcounter := 0.U
     }.otherwise {
       wcounter := wcounter + 1.U
@@ -46,17 +62,26 @@ class LLRAddrGenerator(implicit p: Parameters) extends DecModule {
 
 class ShiftValueGenerator(implicit p: Parameters) extends DecModule {
   val io = IO(new Bundle {
+    val isBG1      = Input(Bool())
     val shiftEn    = Input(Bool())
     val shiftValue = Output(UInt(log2Ceil(MaxZSize).W))
 
     val reShiftEn    = Input(Bool())
     val reShiftValue = Output(UInt(log2Ceil(MaxZSize).W))
   })
-  val shiftValueVec = VecInit(ShiftValue.map(_.U))
+  val isBG1 = io.isBG1
+  assert(BG1ShiftValue.length > BG2ShiftValue.length)
+  val BG2ShiftValuePadded = BG2ShiftValue.padTo(BG1ShiftValue.length, 0)
+  val shiftValueVec = Mux(
+    isBG1,
+    VecInit(BG1ShiftValue.map(_.U(log2Ceil(MaxZSize).W))),
+    VecInit(BG2ShiftValuePadded.map(_.U(log2Ceil(MaxZSize).W)))
+  )
+  val shiftValueVecLen = Mux(isBG1, BG1ShiftValue.length.U, BG2ShiftValue.length.U)
 
-  val shiftCounter = RegInit(0.U(log2Ceil(ShiftValue.length).W))
+  val shiftCounter = RegInit(0.U(log2Ceil(MaxShiftValueVecLen).W))
   when(io.shiftEn === 1.U) {
-    when(shiftCounter === (ShiftValue.length - 1).U) {
+    when(shiftCounter === shiftValueVecLen - 1.U) {
       shiftCounter := 0.U
     }.otherwise {
       shiftCounter := shiftCounter + 1.U
@@ -64,9 +89,9 @@ class ShiftValueGenerator(implicit p: Parameters) extends DecModule {
   }
   io.shiftValue := shiftValueVec(shiftCounter)
 
-  val reShiftCounter = RegInit(0.U(log2Ceil(ShiftValue.length).W))
+  val reShiftCounter = RegInit(0.U(log2Ceil(MaxShiftValueVecLen).W))
   when(io.reShiftEn === 1.U) {
-    when(reShiftCounter === (ShiftValue.length - 1).U) {
+    when(reShiftCounter === shiftValueVecLen - 1.U) {
       reShiftCounter := 0.U
     }.otherwise {
       reShiftCounter := reShiftCounter + 1.U
@@ -77,31 +102,39 @@ class ShiftValueGenerator(implicit p: Parameters) extends DecModule {
 
 class GCU(implicit p: Parameters) extends DecModule {
   val io = IO(new Bundle {
+    val isBG1             = Input(Bool())
     val llrInitDone       = Input(Bool())
-    val llrRAddr          = ValidIO(UInt(log2Ceil(ColNum).W))
+    val llrRAddr          = ValidIO(UInt(log2Ceil(MaxColNum).W))
     val shiftValue        = ValidIO(UInt(log2Ceil(MaxZSize).W))
     val llrRIsLastCol     = Output(Bool())
     val llrReadyIsLastCal = Output(Bool())
-    val c2vRamRdReq       = ValidIO(UInt(log2Ceil(LayerNum).W))
+    val c2vRamRdReq       = ValidIO(UInt(log2Ceil(MaxLayerNum).W))
     val v2cSignRamRdReq   = ValidIO(UInt(log2Ceil(MaxEdgeNum).W))
     val v2cSignRamWrReq   = ValidIO(UInt(log2Ceil(MaxEdgeNum).W))
     val v2cFifoIn         = Output(Bool())
     val vnuCoreEn         = Output(Bool())
     val vnuCoreCounter    = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
-    val vnuLayerCounter   = Output(UInt(log2Ceil(LayerNum).W))
+    val vnuLayerCounter   = Output(UInt(log2Ceil(MaxLayerNum).W))
     val vnuIterCounter    = Output(UInt(log2Ceil(MaxIterNum).W))
     val v2cFifoOut        = Output(Bool())
     val decoupledFifoIn   = Output(Bool())
     val decoupledFifoOut  = Output(Bool())
     val cnuCoreEn         = Output(Bool())
     val cnuCoreCounter    = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
-    val cnuLayerCounter   = Output(UInt(log2Ceil(LayerNum).W))
+    val cnuLayerCounter   = Output(UInt(log2Ceil(MaxLayerNum).W))
     val cnuIterCounter    = Output(UInt(log2Ceil(MaxIterNum).W))
     val reShiftValue      = ValidIO(UInt(log2Ceil(MaxZSize).W))
-    val llrWAddr          = ValidIO(UInt(log2Ceil(ColNum).W))
+    val llrWAddr          = ValidIO(UInt(log2Ceil(MaxColNum).W))
   })
-  
-  val numAtLayer = VecInit(NumAtLayer.map(_.U))
+  val isBG1               = io.isBG1
+  val BG2NumAtLayerPadded = BG2NumAtLayer.padTo(BG1NumAtLayer.length, 0)
+  val numAtLayer = Mux(
+    isBG1,
+    VecInit(BG1NumAtLayer.map(n => n.U(log2Ceil(MaxLayerNum).W))),
+    VecInit(BG2NumAtLayerPadded.map(n => n.U(log2Ceil(MaxLayerNum).W)))
+  )
+  val edgeNum  = Mux(isBG1, BG1ColIdx.length.U, BG2ColIdx.length.U)
+  val layerNum = Mux(isBG1, BG1RowNum.U, BG2RowNum.U)
 
   val cnuLastLayerDone = RegInit(false.B)
   val vnuLastLayerDone = RegInit(false.B)
@@ -109,9 +142,10 @@ class GCU(implicit p: Parameters) extends DecModule {
   val vnuLastIterDone  = RegInit(false.B)
 
   // VNU Logic
-  val colScoreBoard = RegInit(VecInit(Seq.fill(ColNum)(true.B)))
+  val colScoreBoard = RegInit(VecInit(Seq.fill(MaxColNum)(true.B)))
 
   val llrAddrGenerator = Module(new LLRAddrGenerator)
+  llrAddrGenerator.io.isBG1 := isBG1
 
   io.llrRAddr.valid := llrAddrGenerator.io.ren
   io.llrRAddr.bits  := llrAddrGenerator.io.llrRAddr
@@ -123,6 +157,7 @@ class GCU(implicit p: Parameters) extends DecModule {
 
   val shiftValueGenerator = Module(new ShiftValueGenerator)
   shiftValueGenerator.io.shiftEn := llrReady
+  shiftValueGenerator.io.isBG1   := isBG1
 
   io.shiftValue.valid := llrReady
   io.shiftValue.bits  := shiftValueGenerator.io.shiftValue
@@ -138,9 +173,9 @@ class GCU(implicit p: Parameters) extends DecModule {
   val vnuLastColStage1 = DelayN(delay3LastCol, DelayOfVNU - 1).suggestName("vnuLastColStage1")
   val vnuLastColStage2 = DelayN(delay3LastCol, DelayOfVNU).suggestName("vnuLastColStage2")
 
-  val c2vRamRLayer = RegInit(0.U(log2Ceil(LayerNum).W))
+  val c2vRamRLayer = RegInit(0.U(log2Ceil(MaxLayerNum).W))
   when(io.c2vRamRdReq.valid) {
-    c2vRamRLayer := Mux(c2vRamRLayer === (LayerNum - 1).U, 0.U, c2vRamRLayer + 1.U)
+    c2vRamRLayer := Mux(c2vRamRLayer === layerNum - 1.U, 0.U, c2vRamRLayer + 1.U)
   }
 
   io.c2vRamRdReq.valid := DelayN(llrAddrGenerator.io.isFirstCol && llrAddrGenerator.io.ren, DelayOfShifter)
@@ -163,7 +198,7 @@ class GCU(implicit p: Parameters) extends DecModule {
   val v2cSignRamRen      = DelayN(llrReady, DelayOfShifter - 1) // sign ram ren before vnuBegin
   val v2cSignRamRcounter = RegInit(0.U(log2Ceil(MaxEdgeNum).W))
   when(v2cSignRamRen) {
-    when(v2cSignRamRcounter + 1.U === EdgeNum.U) {
+    when(v2cSignRamRcounter + 1.U === edgeNum) {
       v2cSignRamRcounter := 0.U
     }.otherwise {
       v2cSignRamRcounter := v2cSignRamRcounter + 1.U
@@ -172,15 +207,15 @@ class GCU(implicit p: Parameters) extends DecModule {
   io.v2cSignRamRdReq.valid := v2cSignRamRen
   io.v2cSignRamRdReq.bits  := v2cSignRamRcounter
 
-  val vnuLayerCounter    = RegInit(0.U(log2Ceil(LayerNum).W))
-  val vnuIterCounter     = RegInit(0.U(log2Ceil(MaxIterNum).W))
-  val layerScoreBoard = RegInit(VecInit(Seq.fill(LayerNum)(false.B)))
-  when(vnuLayerCounter === (LayerNum - 1).U && vnuIterCounter === (MaxIterNum - 1).U && 
-       vnuCoreCounter === numAtLayer(vnuLayerCounter) - 1.U) {
+  val vnuLayerCounter = RegInit(0.U(log2Ceil(MaxLayerNum).W))
+  val vnuIterCounter  = RegInit(0.U(log2Ceil(MaxIterNum).W))
+  val layerScoreBoard = RegInit(VecInit(Seq.fill(MaxLayerNum)(false.B)))
+  when(vnuLayerCounter === layerNum - 1.U && vnuIterCounter === (MaxIterNum - 1).U &&
+    vnuCoreCounter === numAtLayer(vnuLayerCounter) - 1.U) {
     vnuLastIterDone := true.B
   }
   when(vnuLastColStage0 && !vnuLastIterDone) {
-    when(vnuLayerCounter === (LayerNum - 1).U) {
+    when(vnuLayerCounter === layerNum - 1.U) {
       vnuLayerCounter := 0.U
       vnuIterCounter  := vnuIterCounter + 1.U
     }.otherwise {
@@ -193,7 +228,7 @@ class GCU(implicit p: Parameters) extends DecModule {
   io.vnuIterCounter  := vnuIterCounter
 
   // CNU Logic
-  val cnuLayerCounter = RegInit(0.U(log2Ceil(LayerNum).W))
+  val cnuLayerCounter = RegInit(0.U(log2Ceil(MaxLayerNum).W))
   val cnuCoreCounter  = RegInit(0.U(log2Ceil(MaxDegreeOfCNU).W))
   val cnuIterCounter  = RegInit(0.U(log2Ceil(MaxIterNum).W))
 
@@ -208,7 +243,7 @@ class GCU(implicit p: Parameters) extends DecModule {
   val v2cSignRamWen      = cnuCoreBegin
   val v2cSignRamWcounter = RegInit(0.U(log2Ceil(MaxEdgeNum).W))
   when(v2cSignRamWen) {
-    when(v2cSignRamWcounter + 1.U === EdgeNum.U) {
+    when(v2cSignRamWcounter + 1.U === edgeNum) {
       v2cSignRamWcounter := 0.U
     }.otherwise {
       v2cSignRamWcounter := v2cSignRamWcounter + 1.U
@@ -219,7 +254,7 @@ class GCU(implicit p: Parameters) extends DecModule {
 
   when(cnuCoreBegin && !cnuLastIterDone) {
     when(cnuCoreCounter === numAtLayer(cnuLayerCounter) - 1.U) {
-      when(cnuLayerCounter === (LayerNum - 1).U) {
+      when(cnuLayerCounter === layerNum - 1.U) {
         cnuLayerCounter := 0.U
         cnuIterCounter  := cnuIterCounter + 1.U
       }.otherwise {
@@ -234,14 +269,20 @@ class GCU(implicit p: Parameters) extends DecModule {
   when(cnuCoreBegin && !cnuLastIterDone && cnuCoreCounter === numAtLayer(cnuLayerCounter) - 1.U) {
     layerScoreBoard(cnuLayerCounter) := false.B
     when(vnuLastColStage0 && !vnuLastIterDone) {
-      assert(vnuLayerCounter =/= cnuLayerCounter, "Assertion failed, vnuLayerCounter should not equal to cnuLayerCounter!")
+      assert(
+        vnuLayerCounter =/= cnuLayerCounter,
+        "Assertion failed, vnuLayerCounter should not equal to cnuLayerCounter!"
+      )
     }
   }
-  
-  when(vnuLastColStage0 && !vnuLastIterDone){
+
+  when(vnuLastColStage0 && !vnuLastIterDone) {
     layerScoreBoard(vnuLayerCounter) := true.B
     when(cnuCoreBegin && !cnuLastIterDone && cnuCoreCounter === numAtLayer(cnuLayerCounter) - 1.U) {
-      assert(vnuLayerCounter =/= cnuLayerCounter, "Assertion failed, vnuLayerCounter should not equal to cnuLayerCounter!")
+      assert(
+        vnuLayerCounter =/= cnuLayerCounter,
+        "Assertion failed, vnuLayerCounter should not equal to cnuLayerCounter!"
+      )
     }
   }
 
@@ -252,8 +293,8 @@ class GCU(implicit p: Parameters) extends DecModule {
     cnuLastColStage1 := true.B
   }
 
-  when(cnuLayerCounter === (LayerNum - 1).U && cnuIterCounter === (MaxIterNum - 1).U &&
-       cnuCoreCounter === numAtLayer(cnuLayerCounter) - 1.U) {
+  when(cnuLayerCounter === layerNum - 1.U && cnuIterCounter === (MaxIterNum - 1).U &&
+    cnuCoreCounter === numAtLayer(cnuLayerCounter) - 1.U) {
     cnuLastIterDone := true.B
   }
 

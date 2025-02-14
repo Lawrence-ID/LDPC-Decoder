@@ -32,37 +32,40 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
   class LDPCDecoderImp(wrapper: LDPCDecoderTop) extends LazyModuleImp(wrapper) {
     val io = IO(new Bundle {
       // Input
+      val isBG1   = Input(Bool())
       val zSize   = Input(UInt(log2Ceil(MaxZSize).W))
       val llrInit = Input(Bool())
       val llrIn   = Input(Vec(MaxZSize, UInt(LLRBits.W)))
 
       // Output
-      val llrRAddr          = ValidIO(UInt(log2Ceil(ColNum).W))
+      val llrRAddr          = ValidIO(UInt(log2Ceil(MaxColNum).W))
       val shiftValue        = ValidIO(UInt(log2Ceil(MaxZSize).W))
       val llrRIsLastCol     = Output(Bool())
       val llrReadyIsLastCal = Output(Bool())
-      val c2vRamRdReq       = ValidIO(UInt(log2Ceil(LayerNum).W))
+      val c2vRamRdReq       = ValidIO(UInt(log2Ceil(MaxLayerNum).W))
       val v2cSignRamRdReq   = ValidIO(UInt(log2Ceil(MaxEdgeNum).W))
       val v2cSignRamWrReq   = ValidIO(UInt(log2Ceil(MaxEdgeNum).W))
       val v2cFifoIn         = Output(Bool())
       val vnuCoreEn         = Output(Bool())
       val vnuCoreCounter    = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
-      val vnuLayerCounter   = Output(UInt(log2Ceil(LayerNum).W))
+      val vnuLayerCounter   = Output(UInt(log2Ceil(MaxLayerNum).W))
       val v2cFifoOut        = Output(Bool())
       val cnuCoreEn         = Output(Bool())
       val cnuCoreCounter    = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
-      val cnuLayerCounter   = Output(UInt(log2Ceil(LayerNum).W))
+      val cnuLayerCounter   = Output(UInt(log2Ceil(MaxLayerNum).W))
       val reShiftValue      = ValidIO(UInt(log2Ceil(MaxZSize).W))
-      val llrWAddr          = ValidIO(UInt(log2Ceil(ColNum).W))
+      val llrWAddr          = ValidIO(UInt(log2Ceil(MaxColNum).W))
       val decoupledFifoIn   = Output(Bool())
       val decoupledFifoOut  = Output(Bool())
       val llrOut            = Output(Vec(MaxZSize, UInt(LLRBits.W)))
     })
 
+    val isBG1 = io.isBG1
+
     // =====================RAMs and Fifos Definition=====================
     val LLRRAM = Module(new SRAMTemplate(
       Vec(MaxZSize, UInt(LLRBits.W)),
-      set = ColNum,
+      set = MaxColNum,
       singlePort = false, // need read and write port both
       bypassWrite = true,
       withClockGate = true
@@ -76,7 +79,7 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
 
     val Mc2vRAM = Module(new SRAMTemplate(
       Vec(MaxZSize, UInt(C2VRowMsgBits.W)),
-      set = LayerNum,
+      set = MaxLayerNum,
       holdRead = true
     ))
 
@@ -92,8 +95,9 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
     val llrRAMRData = LLRRAM.io.r(GCU.io.llrRAddr.valid, GCU.io.llrRAddr.bits).resp.data(0)
 
     val llrInitDoneReg = RegInit(false.B)
-    val llrInitCounter = RegInit(0.U(log2Ceil(ColNum).W))
-    when(llrInitCounter === (ColNum - 1).U) {
+    val llrInitCounter = RegInit(0.U(log2Ceil(MaxColNum).W))
+    val colNum         = Mux(isBG1, BG1ColNum.U, BG2ColNum.U)
+    when(llrInitCounter === colNum - 1.U) {
       llrInitDoneReg := true.B
     }
     when(io.llrInit && !llrInitDoneReg) {
@@ -111,6 +115,7 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
     )
 
     GCU.io.llrInitDone := llrInitDoneReg
+    GCU.io.isBG1       := isBG1
 
     cyclicShifter.io.in.valid          := GCU.io.shiftValue.valid // shift en
     cyclicShifter.io.in.bits.llr       := llrRAMRData             // need to be read from llrRam

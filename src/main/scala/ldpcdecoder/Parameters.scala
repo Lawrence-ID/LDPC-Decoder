@@ -10,7 +10,6 @@ case object DecParamsKey extends Field[DecParameters]
 case class DecParameters(
     MaxZSize: Int = 384,
     LLRBits: Int = 6,
-    isBG1: Boolean = true,
     MaxDegreeOfCNU: Int = 19,
     DelayOfShifter: Int = 3,
     DelayOfVNU: Int = 2,
@@ -412,27 +411,33 @@ case class DebugOptions(
 
 trait HasDecParameter {
   implicit val p: Parameters
-  val BG1RowNum      = 46
-  val BG1ColNum      = 68
-  val BG2RowNum      = 42
-  val BG2ColNum      = 52
-  def isBG1          = p(DecParamsKey).isBG1
-  def MaxZSize       = p(DecParamsKey).MaxZSize
-  def LLRBits        = p(DecParamsKey).LLRBits
-  def LayerNum       = if (isBG1) BG1RowNum else BG2RowNum
-  def ColNum         = if (isBG1) BG1ColNum else BG2ColNum
-  def ColIdxOrder    = if (isBG1) p(DecParamsKey).BG1ColIdx else p(DecParamsKey).BG2ColIdx
-  def IsLastCol      = if (isBG1) p(DecParamsKey).BG1isLastCol else p(DecParamsKey).BG2isLastCol
-  def IsFirstCol     = if (isBG1) p(DecParamsKey).BG1isFirstCol else p(DecParamsKey).BG2isFirstCol
+  val BG1RowNum       = 46
+  val BG1ColNum       = 68
+  val BG2RowNum       = 42
+  val BG2ColNum       = 52
+  def MaxZSize        = p(DecParamsKey).MaxZSize
+  def LLRBits         = p(DecParamsKey).LLRBits
+  def MaxLayerNum     = if (BG1RowNum > BG2RowNum) BG1RowNum else BG2RowNum
+  def MaxColNum       = if (BG1ColNum > BG2ColNum) BG1ColNum else BG2ColNum
+  def BG1ColIdx       = p(DecParamsKey).BG1ColIdx
+  def BG2ColIdx       = p(DecParamsKey).BG2ColIdx
+  def MaxColIdxVecLen = if (BG1ColIdx.length > BG2ColIdx.length) BG1ColIdx.length else BG2ColIdx.length
+  def BG1IsLastCol    = p(DecParamsKey).BG1isLastCol
+  def BG2IsLastCol    = p(DecParamsKey).BG2isLastCol
+  def BG1IsFirstCol   = p(DecParamsKey).BG1isFirstCol
+  def BG2IsFirstCol   = p(DecParamsKey).BG2isFirstCol
+  def BG1NumAtLayer   = p(DecParamsKey).BG1NumAtLayer
+  def BG2NumAtLayer   = p(DecParamsKey).BG2NumAtLayer
+  def BG1ShiftValue   = p(DecParamsKey).BG1ShiftValue
+  def BG2ShiftValue   = p(DecParamsKey).BG2ShiftValue
+  def MaxShiftValueVecLen =
+    if (BG1ShiftValue.length > BG2ShiftValue.length) BG1ShiftValue.length else BG2ShiftValue.length
   def DelayOfShifter = p(DecParamsKey).DelayOfShifter
   def DelayOfVNU     = p(DecParamsKey).DelayOfVNU
   def DelayOfCNU     = p(DecParamsKey).DelayOfCNU
-  def NumAtLayer     = if (isBG1) p(DecParamsKey).BG1NumAtLayer else p(DecParamsKey).BG2NumAtLayer
-  def ShiftValue     = if (isBG1) p(DecParamsKey).BG1ShiftValue else p(DecParamsKey).BG2ShiftValue
   def MaxDegreeOfCNU = p(DecParamsKey).MaxDegreeOfCNU
   def C2VMsgMagWidth = LLRBits - 3
   def C2VRowMsgBits  = 1 + 2 * C2VMsgMagWidth + log2Ceil(MaxDegreeOfCNU)
   def MaxEdgeNum     = p(DecParamsKey).BG1ColIdx.length
-  def EdgeNum        = if (isBG1) p(DecParamsKey).BG1ColIdx.length else p(DecParamsKey).BG2ColIdx.length
   def MaxIterNum     = p(DecParamsKey).MaxIterNum
 }

@@ -103,7 +103,7 @@ class ShiftValueGenerator(implicit p: Parameters) extends DecModule {
 class GCU(implicit p: Parameters) extends DecModule {
   val io = IO(new Bundle {
     val isBG1             = Input(Bool())
-    val llrInitDone       = Input(Bool())
+    val llrInValid        = Input(Bool())
     val llrRAddr          = ValidIO(UInt(log2Ceil(MaxColNum).W))
     val shiftValue        = ValidIO(UInt(log2Ceil(MaxZSize).W))
     val llrRIsLastCol     = Output(Bool())
@@ -125,7 +125,40 @@ class GCU(implicit p: Parameters) extends DecModule {
     val cnuIterCounter    = Output(UInt(log2Ceil(MaxIterNum).W))
     val reShiftValue      = ValidIO(UInt(log2Ceil(MaxZSize).W))
     val llrWAddr          = ValidIO(UInt(log2Ceil(MaxColNum).W))
+    val llrIniting        = Output(Bool())
+    // val llrDecodedWriteDone = Output(Bool())
   })
+
+  // val m_idle :: m_llrInput :: m_decoding :: m_llrOutput :: Nil = Enum(4)
+  // val state = RegInit(m_idle)
+  // val next_state = WireDefault(state)
+  // dontTouch(state)
+  // dontTouch(next_state)
+  // state := next_state
+
+  // switch(state){
+  //   is(m_idle){
+  //     when(){
+  //       next_state := m_llrInput
+  //     }
+  //   }
+  //   is(m_llrInput){
+  //     when(){
+  //       next_state := m_decoding
+  //     }
+  //   }
+  //   is(m_decoding){
+  //     when(){
+  //       next_state := m_llrOutput
+  //     }
+  //   }
+  //   is(m_llrOutput){
+  //     when(){
+  //       next_state := m_idle
+  //     }
+  //   }
+  // }
+
   val isBG1               = io.isBG1
   val BG2NumAtLayerPadded = BG2NumAtLayer.padTo(BG1NumAtLayer.length, 0)
   val numAtLayer = Mux(
@@ -314,14 +347,25 @@ class GCU(implicit p: Parameters) extends DecModule {
 
   val llrLastLayerWriteDone = DelayN(cnuLastIterDone, DelayOfCNU + DelayOfShifter)
   llrAddrGenerator.io.wen := reShifterDone && !llrLastLayerWriteDone
-  io.llrWAddr.valid       := llrAddrGenerator.io.wen
-  io.llrWAddr.bits        := llrAddrGenerator.io.llrWAddr
+
+  val llrInitDoneReg = RegInit(false.B)
+  val llrInitCounter = RegInit(0.U(log2Ceil(MaxColNum).W))
+  val colNum         = Mux(isBG1, BG1ColNum.U, BG2ColNum.U)
+  when(llrInitCounter === colNum - 1.U) {
+    llrInitDoneReg := true.B
+  }
+  when(io.llrInValid && !llrInitDoneReg) {
+    llrInitCounter := llrInitCounter + 1.U
+  }
+  io.llrIniting     := io.llrInValid && !llrInitDoneReg
+  io.llrWAddr.valid := llrAddrGenerator.io.wen || io.llrIniting
+  io.llrWAddr.bits  := Mux(io.llrIniting, llrInitCounter, llrAddrGenerator.io.llrWAddr)
 
   when(io.llrWAddr.valid) { // llr wen
     colScoreBoard(io.llrWAddr.bits) := true.B
   }
 
-  llrAddrGenerator.io.ren := io.llrInitDone && colScoreBoard(
+  llrAddrGenerator.io.ren := llrInitDoneReg && colScoreBoard(
     llrAddrGenerator.io.llrRAddr
   ) && !vnuLastIterDone && !cnuLastIterDone
 

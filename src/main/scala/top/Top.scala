@@ -31,13 +31,17 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
 
   class LDPCDecoderImp(wrapper: LDPCDecoderTop) extends LazyModuleImp(wrapper) {
     val io = IO(new Bundle {
-      // Input
-      val isBG1   = Input(Bool())
-      val zSize   = Input(UInt(log2Ceil(MaxZSize).W))
-      val llrInit = Input(Bool())
-      val llrIn   = Input(Vec(MaxZSize, UInt(LLRBits.W)))
+      val isBG1      = Input(Bool())
+      val zSize      = Input(UInt(log2Ceil(MaxZSize).W))
+      val llrInValid = Input(Bool())
+      val llrInData  = Input(Vec(MaxZSize, UInt(LLRBits.W)))
+      // val llrInReady = Output(Bool())
 
-      // Output
+      // val llrOutValid = Output(Bool())
+      // val llrOutReady = Input(Bool())
+      // val llrOut = Output(UInt(MaxZSize.W))
+
+      // Debug
       val llrRAddr          = ValidIO(UInt(log2Ceil(MaxColNum).W))
       val shiftValue        = ValidIO(UInt(log2Ceil(MaxZSize).W))
       val llrRIsLastCol     = Output(Bool())
@@ -94,28 +98,15 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
     // =====================Logic and wire connection=====================
     val llrRAMRData = LLRRAM.io.r(GCU.io.llrRAddr.valid, GCU.io.llrRAddr.bits).resp.data(0)
 
-    val llrInitDoneReg = RegInit(false.B)
-    val llrInitCounter = RegInit(0.U(log2Ceil(MaxColNum).W))
-    val colNum         = Mux(isBG1, BG1ColNum.U, BG2ColNum.U)
-    when(llrInitCounter === colNum - 1.U) {
-      llrInitDoneReg := true.B
-    }
-    when(io.llrInit && !llrInitDoneReg) {
-      llrInitCounter := llrInitCounter + 1.U
-    }
-
-    val llrRAMWAddr = Mux(io.llrInit && !llrInitDoneReg, llrInitCounter, GCU.io.llrWAddr.bits)
-    val llrRAMWData = Mux(io.llrInit && !llrInitDoneReg, io.llrIn, reCyclicShifter.io.out.bits)
-
     LLRRAM.io.w(
-      valid = GCU.io.llrWAddr.valid || (io.llrInit && !llrInitDoneReg),
-      data = llrRAMWData,
-      setIdx = llrRAMWAddr,
+      valid = GCU.io.llrWAddr.valid,
+      data = Mux(GCU.io.llrIniting, io.llrInData, reCyclicShifter.io.out.bits),
+      setIdx = GCU.io.llrWAddr.bits,
       waymask = 1.U
     )
 
-    GCU.io.llrInitDone := llrInitDoneReg
-    GCU.io.isBG1       := isBG1
+    GCU.io.llrInValid := io.llrInValid
+    GCU.io.isBG1      := isBG1
 
     cyclicShifter.io.in.valid          := GCU.io.shiftValue.valid // shift en
     cyclicShifter.io.in.bits.llr       := llrRAMRData             // need to be read from llrRam

@@ -36,6 +36,7 @@ int8_t llr_in[MAX_COL][MAX_Zc];
 int Zc = 3;
 int BG = 1;
 int llrWrLayer = 0;
+int MaxIter = 8;
 
 void step(){
     contextp->timeInc(1);
@@ -80,6 +81,7 @@ void printLLRRAM(int llrWrLayer, int BG, int Zc, FILE *file){
     }
 
     // 每行写入384个数，写68行，每68行之后空一行
+    llrWrLayer = llrWrLayer % (rowNum * MaxIter);
     fprintf(file, "it = %d\n", (llrWrLayer / rowNum) + 1);
     fprintf(file, "l = %d\n", (llrWrLayer % rowNum) + 1);
     // for (int row = 0; row < 68; row++) {
@@ -169,8 +171,8 @@ int main(int argc, char **argv){
     int prev_tick_llrWValid = 0;
     
     for(int i = 0; i < 6000; i++){
-        if(i > 2 && i < 200) top->io_llrInit = 1;
-        else top->io_llrInit = 0;
+        if((i > 2 && i < 200) || (i > 5100 && i < 5300)) {top->io_llrInit = 1;}
+        else {top->io_llrInit = 0;}
         top->io_llrIn_0   = llr_in[top->rootp->LDPCDecoderTop__DOT__llrInitCounter][0];
         top->io_llrIn_1   = llr_in[top->rootp->LDPCDecoderTop__DOT__llrInitCounter][1];
         top->io_llrIn_2   = llr_in[top->rootp->LDPCDecoderTop__DOT__llrInitCounter][2];

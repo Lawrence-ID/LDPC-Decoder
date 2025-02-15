@@ -94,28 +94,36 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
     // =====================Logic and wire connection=====================
     val llrRAMRData = LLRRAM.io.r(GCU.io.llrRAddr.valid, GCU.io.llrRAddr.bits).resp.data(0)
 
-    val llrInitDoneReg = RegInit(false.B)
-    val llrInitCounter = RegInit(0.U(log2Ceil(MaxColNum).W))
-    val colNum         = Mux(isBG1, BG1ColNum.U, BG2ColNum.U)
-    when(llrInitCounter === colNum - 1.U) {
-      llrInitDoneReg := true.B
+    val decoding          = RegInit(false.B)
+    val decodeMaxIterDone = Wire(Bool())
+    val llrInitCounter    = RegInit(0.U(log2Ceil(MaxColNum).W))
+    val colNum            = Mux(isBG1, BG1ColNum.U, BG2ColNum.U)
+
+    when(decodeMaxIterDone) {
+      decoding := false.B
+    }.elsewhen(llrInitCounter === colNum - 1.U) {
+      decoding := true.B
     }
-    when(io.llrInit && !llrInitDoneReg) {
+
+    when(io.llrInit && llrInitCounter === colNum - 1.U) {
+      llrInitCounter := 0.U
+    }.elsewhen(io.llrInit && !decoding) {
       llrInitCounter := llrInitCounter + 1.U
     }
 
-    val llrRAMWAddr = Mux(io.llrInit && !llrInitDoneReg, llrInitCounter, GCU.io.llrWAddr.bits)
-    val llrRAMWData = Mux(io.llrInit && !llrInitDoneReg, io.llrIn, reCyclicShifter.io.out.bits)
+    val llrRAMWAddr = Mux(io.llrInit && !decoding, llrInitCounter, GCU.io.llrWAddr.bits)
+    val llrRAMWData = Mux(io.llrInit && !decoding, io.llrIn, reCyclicShifter.io.out.bits)
 
     LLRRAM.io.w(
-      valid = GCU.io.llrWAddr.valid || (io.llrInit && !llrInitDoneReg),
+      valid = GCU.io.llrWAddr.valid || (io.llrInit && !decoding),
       data = llrRAMWData,
       setIdx = llrRAMWAddr,
       waymask = 1.U
     )
 
-    GCU.io.llrInitDone := llrInitDoneReg
-    GCU.io.isBG1       := isBG1
+    GCU.io.gcuEn      := decoding
+    decodeMaxIterDone := GCU.io.decodeMaxIterDone
+    GCU.io.isBG1      := isBG1
 
     cyclicShifter.io.in.valid          := GCU.io.shiftValue.valid // shift en
     cyclicShifter.io.in.bits.llr       := llrRAMRData             // need to be read from llrRam
@@ -124,11 +132,22 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
     cyclicShifter.io.out.ready         := GCU.io.vnuCoreEn
 
     // VNUs Input
+
+    val v2cSignPrevIter = Mux(
+      GCU.io.vnuIterCounter =/= 0.U,
+      Mv2cSignRAM.io.r(GCU.io.v2cSignRamRdReq.valid, GCU.io.v2cSignRamRdReq.bits).resp.data(0),
+      VecInit(Seq.fill(MaxZSize)(0.U(1.W)))
+    )
+    val c2vRowMsgPrevIter = Mux(
+      GCU.io.vnuIterCounter =/= 0.U,
+      Mc2vRAM.io.r(GCU.io.c2vRamRdReq.valid, GCU.io.c2vRamRdReq.bits).resp.data(0),
+      VecInit(Seq.fill(MaxZSize)(0.U(C2VRowMsgBits.W)))
+    )
     vnus.io.in.en           := GCU.io.vnuCoreEn
     vnus.io.in.zSize        := io.zSize
     vnus.io.in.counter      := GCU.io.vnuCoreCounter
-    vnus.io.in.v2cSignOld   := Mv2cSignRAM.io.r(GCU.io.v2cSignRamRdReq.valid, GCU.io.v2cSignRamRdReq.bits).resp.data(0)
-    vnus.io.in.c2vRowMsgOld := Mc2vRAM.io.r(GCU.io.c2vRamRdReq.valid, GCU.io.c2vRamRdReq.bits).resp.data(0)
+    vnus.io.in.v2cSignOld   := v2cSignPrevIter
+    vnus.io.in.c2vRowMsgOld := c2vRowMsgPrevIter
     vnus.io.in.shiftedLLR   := cyclicShifter.io.out.bits
 
     // VNUs Output

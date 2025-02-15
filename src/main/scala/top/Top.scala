@@ -38,26 +38,26 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
       val llrIn   = Input(Vec(MaxZSize, UInt(LLRBits.W)))
 
       // Output
-      val llrRAddr          = ValidIO(UInt(log2Ceil(MaxColNum).W))
-      val shiftValue        = ValidIO(UInt(log2Ceil(MaxZSize).W))
-      val llrRIsLastCol     = Output(Bool())
-      val llrReadyIsLastCal = Output(Bool())
-      val c2vRamRdReq       = ValidIO(UInt(log2Ceil(MaxLayerNum).W))
-      val v2cSignRamRdReq   = ValidIO(UInt(log2Ceil(MaxEdgeNum).W))
-      val v2cSignRamWrReq   = ValidIO(UInt(log2Ceil(MaxEdgeNum).W))
-      val v2cFifoIn         = Output(Bool())
-      val vnuCoreEn         = Output(Bool())
-      val vnuCoreCounter    = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
-      val vnuLayerCounter   = Output(UInt(log2Ceil(MaxLayerNum).W))
-      val v2cFifoOut        = Output(Bool())
-      val cnuCoreEn         = Output(Bool())
-      val cnuCoreCounter    = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
-      val cnuLayerCounter   = Output(UInt(log2Ceil(MaxLayerNum).W))
-      val reShiftValue      = ValidIO(UInt(log2Ceil(MaxZSize).W))
-      val llrWAddr          = ValidIO(UInt(log2Ceil(MaxColNum).W))
-      val decoupledFifoIn   = Output(Bool())
-      val decoupledFifoOut  = Output(Bool())
-      val llrOut            = Output(Vec(MaxZSize, UInt(LLRBits.W)))
+      val llrRAddr                 = ValidIO(UInt(log2Ceil(MaxColNum).W))
+      val shiftValue               = ValidIO(UInt(log2Ceil(MaxZSize).W))
+      val llrRIsLastCol            = Output(Bool())
+      val llrReadyToShiftIsLastCal = Output(Bool())
+      val c2vRamRdReq              = ValidIO(UInt(log2Ceil(MaxLayerNum).W))
+      val v2cSignRamRdReq          = ValidIO(UInt(log2Ceil(MaxEdgeNum).W))
+      val v2cSignRamWrReq          = ValidIO(UInt(log2Ceil(MaxEdgeNum).W))
+      val v2cFifoIn                = Output(Bool())
+      val vnuCoreEn                = Output(Bool())
+      val vnuCoreCounter           = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
+      val vnuLayerCounter          = Output(UInt(log2Ceil(MaxLayerNum).W))
+      val v2cFifoOut               = Output(Bool())
+      val cnuCoreEn                = Output(Bool())
+      val cnuCoreCounter           = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
+      val cnuLayerCounter          = Output(UInt(log2Ceil(MaxLayerNum).W))
+      val reShiftValue             = ValidIO(UInt(log2Ceil(MaxZSize).W))
+      val llrWAddr                 = ValidIO(UInt(log2Ceil(MaxColNum).W))
+      val decoupledFifoIn          = Output(Bool())
+      val decoupledFifoOut         = Output(Bool())
+      val llrOut                   = Output(Vec(MaxZSize, UInt(LLRBits.W)))
     })
 
     val isBG1 = io.isBG1
@@ -192,25 +192,25 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
     io.llrOut := reCyclicShifter.io.out.bits // TODO: QSN need 3 cycle
 
     // GCU Output
-    io.llrRAddr          := GCU.io.llrRAddr
-    io.shiftValue        := GCU.io.shiftValue
-    io.llrRIsLastCol     := GCU.io.llrRIsLastCol
-    io.llrReadyIsLastCal := GCU.io.llrReadyIsLastCal
-    io.c2vRamRdReq       := GCU.io.c2vRamRdReq
-    io.v2cSignRamRdReq   := GCU.io.v2cSignRamRdReq
-    io.v2cSignRamWrReq   := GCU.io.v2cSignRamWrReq
-    io.v2cFifoIn         := GCU.io.v2cFifoIn
-    io.vnuCoreEn         := GCU.io.vnuCoreEn
-    io.vnuCoreCounter    := GCU.io.vnuCoreCounter
-    io.vnuLayerCounter   := GCU.io.vnuLayerCounter
-    io.decoupledFifoIn   := GCU.io.decoupledFifoIn
-    io.decoupledFifoOut  := GCU.io.decoupledFifoOut
-    io.v2cFifoOut        := GCU.io.v2cFifoOut
-    io.cnuCoreEn         := GCU.io.cnuCoreEn
-    io.cnuCoreCounter    := GCU.io.cnuCoreCounter
-    io.cnuLayerCounter   := GCU.io.cnuLayerCounter
-    io.reShiftValue      := GCU.io.reShiftValue
-    io.llrWAddr          := GCU.io.llrWAddr
+    io.llrRAddr                 := GCU.io.llrRAddr
+    io.shiftValue               := GCU.io.shiftValue
+    io.llrRIsLastCol            := GCU.io.llrRIsLastCol
+    io.llrReadyToShiftIsLastCal := GCU.io.llrReadyToShiftIsLastCal
+    io.c2vRamRdReq              := GCU.io.c2vRamRdReq
+    io.v2cSignRamRdReq          := GCU.io.v2cSignRamRdReq
+    io.v2cSignRamWrReq          := GCU.io.v2cSignRamWrReq
+    io.v2cFifoIn                := GCU.io.v2cFifoIn
+    io.vnuCoreEn                := GCU.io.vnuCoreEn
+    io.vnuCoreCounter           := GCU.io.vnuCoreCounter
+    io.vnuLayerCounter          := GCU.io.vnuLayerCounter
+    io.decoupledFifoIn          := GCU.io.decoupledFifoIn
+    io.decoupledFifoOut         := GCU.io.decoupledFifoOut
+    io.v2cFifoOut               := GCU.io.v2cFifoOut
+    io.cnuCoreEn                := GCU.io.cnuCoreEn
+    io.cnuCoreCounter           := GCU.io.cnuCoreCounter
+    io.cnuLayerCounter          := GCU.io.cnuLayerCounter
+    io.reShiftValue             := GCU.io.reShiftValue
+    io.llrWAddr                 := GCU.io.llrWAddr
 
   }
 

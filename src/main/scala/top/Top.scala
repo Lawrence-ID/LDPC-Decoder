@@ -19,8 +19,15 @@ trait HasDecoderParameter {
   val debugOpts = p(DebugOptionsKey)
 }
 
+class LDPCDecoderReq(implicit p: Parameters) extends DecBundle {
+  val isBG1  = Bool()
+  val zSize  = UInt(log2Ceil(MaxZSize).W)
+  val rawLLR = Vec(MaxZSize, UInt(LLRBits.W))
+}
+
 class LDPCDecoderResp(implicit p: Parameters) extends DecBundle {
   val idx        = UInt(log2Ceil(MaxZSize).W)
+  val last       = Bool()
   val decodedLLR = Vec(MaxZSize, UInt(LLRBits.W))
 }
 
@@ -29,13 +36,10 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
   class LDPCDecoderImp(wrapper: LDPCDecoderTop) extends LazyModuleImp(wrapper) {
     val io = IO(new Bundle {
       // Input
-      val isBG1 = Input(Bool())
-      val zSize = Input(UInt(log2Ceil(MaxZSize).W))
-      val llrIn = Flipped(DecoupledIO(Vec(MaxZSize, UInt(LLRBits.W))))
+      val llrIn = Flipped(DecoupledIO(new LDPCDecoderReq))
 
       // Output
       val llrOut = DecoupledIO(new LDPCDecoderResp)
-      val llrOut_last = Output(Bool())
 
       // Debug
       val llrRAddr                 = ValidIO(UInt(log2Ceil(MaxColNum).W))
@@ -59,7 +63,8 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
       val decoupledFifoOut         = Output(Bool())
     })
 
-    val isBG1 = io.isBG1
+    val isBG1 = io.llrIn.bits.isBG1
+    val zSize = io.llrIn.bits.zSize
 
     // =====================RAMs and Fifos Definition=====================
     val LLRRAM = Module(new SRAMTemplate(
@@ -139,7 +144,7 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
     }
 
     val llrRAMWAddr = Mux(io.llrIn.ready, llrInitCounter, GCU.io.llrWAddr.bits)
-    val llrRAMWData = Mux(io.llrIn.ready, io.llrIn.bits, reCyclicShifter.io.out.bits)
+    val llrRAMWData = Mux(io.llrIn.ready, io.llrIn.bits.rawLLR, reCyclicShifter.io.out.bits)
 
     LLRRAM.io.w(
       valid = (state === m_decoding && GCU.io.llrWAddr.valid) || io.llrIn.fire,
@@ -164,20 +169,21 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
     io.llrOut.valid           := DelayN(llrRamOutputRen, 1)
     io.llrOut.bits.idx        := DelayN(llrOutputCounter, 1)
     io.llrOut.bits.decodedLLR := llrRAMRData
-    io.llrOut_last            := io.llrOut.valid & !llrRamOutputRen
+    io.llrOut.bits.last       := io.llrOut.valid & !llrRamOutputRen
 
+    // GCU IO
     GCU.io.gcuEn      := state === m_decoding
     decodeMaxIterDone := GCU.io.decodeMaxIterDone
     GCU.io.isBG1      := isBG1
 
+    // CyclicShifter Input
     cyclicShifter.io.in.valid          := GCU.io.shiftValue.valid // shift en
     cyclicShifter.io.in.bits.llr       := llrRAMRData             // need to be read from llrRam
-    cyclicShifter.io.in.bits.zSize     := io.zSize
+    cyclicShifter.io.in.bits.zSize     := zSize
     cyclicShifter.io.in.bits.shiftSize := GCU.io.shiftValue.bits
     cyclicShifter.io.out.ready         := GCU.io.vnuCoreEn
 
     // VNUs Input
-
     val v2cSignPrevIter = Mux(
       GCU.io.vnuIterCounter =/= 0.U,
       Mv2cSignRAM.io.r(GCU.io.v2cSignRamRdReq.valid, GCU.io.v2cSignRamRdReq.bits).resp.data(0),
@@ -189,7 +195,7 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
       VecInit(Seq.fill(MaxZSize)(0.U(C2VRowMsgBits.W)))
     )
     vnus.io.in.en           := GCU.io.vnuCoreEn
-    vnus.io.in.zSize        := io.zSize
+    vnus.io.in.zSize        := zSize
     vnus.io.in.counter      := GCU.io.vnuCoreCounter
     vnus.io.in.v2cSignOld   := v2cSignPrevIter
     vnus.io.in.c2vRowMsgOld := c2vRowMsgPrevIter
@@ -204,7 +210,7 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
 
     // CNUs Input
     cnus.io.in.en        := GCU.io.cnuCoreEn
-    cnus.io.in.zSize     := io.zSize
+    cnus.io.in.zSize     := zSize
     cnus.io.in.counter   := GCU.io.cnuCoreCounter
     cnus.io.in.v2cMsg    := Mv2cFifo.io.deq.bits
     cnus.io.in.c2vRowMsg := DecoupledFifo.io.deq.bits
@@ -230,7 +236,7 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
     // reshifted
     reCyclicShifter.io.in.valid          := GCU.io.reShiftValue.valid
     reCyclicShifter.io.in.bits.llr       := cnus.io.out.unshiftedLLR
-    reCyclicShifter.io.in.bits.zSize     := io.zSize
+    reCyclicShifter.io.in.bits.zSize     := zSize
     reCyclicShifter.io.in.bits.shiftSize := GCU.io.reShiftValue.bits
     reCyclicShifter.io.out.ready         := true.B
 

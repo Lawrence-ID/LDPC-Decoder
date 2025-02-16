@@ -411,6 +411,7 @@ case class DebugOptions(
 
 trait HasDecParameter {
   implicit val p: Parameters
+  val LLRFromWidth    = 256
   val BG1RowNum       = 46
   val BG1ColNum       = 68
   val BG2RowNum       = 42

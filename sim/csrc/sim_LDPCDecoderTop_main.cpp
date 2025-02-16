@@ -168,6 +168,8 @@ int main(int argc, char **argv){
     top->io_zSize = Zc;
     top->io_isBG1 = 1;
 
+    top->io_llrOut_ready = 1;
+
     int prev_tick_llrWValid = 0;
     
     for(int i = 0; i < 6000; i++){

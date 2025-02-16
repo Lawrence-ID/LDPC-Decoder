@@ -26,14 +26,6 @@ class LDPCDecoderResp(implicit p: Parameters) extends DecBundle {
 
 class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecParameter {
 
-  // class LDPCDecoderTopImp(wrapper: LDPCDecoderTop) extends LazyModuleImp(wrapper){
-  //   val io = IO(new Bundle{
-  //     val in = Input(UInt(MaxZSize.W))
-  //     val out = Output(UInt(MaxZSize.W))
-  //   })
-  //   io.out := io.in
-  // }
-
   class LDPCDecoderImp(wrapper: LDPCDecoderTop) extends LazyModuleImp(wrapper) {
     val io = IO(new Bundle {
       // Input
@@ -42,7 +34,8 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
       val llrIn = Flipped(DecoupledIO(Vec(MaxZSize, UInt(LLRBits.W))))
 
       // Output
-      val llrOut = Output(ValidIO(new LDPCDecoderResp))
+      val llrOut = DecoupledIO(new LDPCDecoderResp)
+      val llrOut_last = Output(Bool())
 
       // Debug
       val llrRAddr                 = ValidIO(UInt(log2Ceil(MaxColNum).W))
@@ -156,7 +149,7 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
     )
 
     // llrRAM Read Out
-    val llrRamOutputRen = state === m_llrOutput
+    val llrRamOutputRen = state === m_llrOutput && io.llrOut.ready
     when(next_state =/= m_llrOutput) {
       llrOutputCounter := 0.U
     }.elsewhen(llrRamOutputRen) { // next_state === m_llrOutput
@@ -171,6 +164,7 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
     io.llrOut.valid           := DelayN(llrRamOutputRen, 1)
     io.llrOut.bits.idx        := DelayN(llrOutputCounter, 1)
     io.llrOut.bits.decodedLLR := llrRAMRData
+    io.llrOut_last            := io.llrOut.valid & !llrRamOutputRen
 
     GCU.io.gcuEn      := state === m_decoding
     decodeMaxIterDone := GCU.io.decodeMaxIterDone

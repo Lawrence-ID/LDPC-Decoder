@@ -84,8 +84,9 @@ class ShiftValueGenerator(implicit p: Parameters) extends DecModule {
 
 class GCU(implicit p: Parameters) extends DecModule {
   val io = IO(new Bundle {
-    val isBG1                    = Input(Bool())
-    val gcuEn                    = Input(Bool())
+    val isBG1 = Input(Bool())
+    val gcuEn = Input(Bool())
+
     val llrRAddr                 = ValidIO(UInt(log2Ceil(MaxColNum).W))
     val shiftValue               = ValidIO(UInt(log2Ceil(MaxZSize).W))
     val llrRIsLastCol            = Output(Bool())

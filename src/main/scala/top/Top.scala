@@ -19,6 +19,11 @@ trait HasDecoderParameter {
   val debugOpts = p(DebugOptionsKey)
 }
 
+class LDPCDecoderResp(implicit p: Parameters) extends DecBundle {
+  val idx        = UInt(log2Ceil(MaxZSize).W)
+  val decodedLLR = Vec(MaxZSize, UInt(LLRBits.W))
+}
+
 class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecParameter {
 
   // class LDPCDecoderTopImp(wrapper: LDPCDecoderTop) extends LazyModuleImp(wrapper){
@@ -32,12 +37,14 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
   class LDPCDecoderImp(wrapper: LDPCDecoderTop) extends LazyModuleImp(wrapper) {
     val io = IO(new Bundle {
       // Input
-      val isBG1   = Input(Bool())
-      val zSize   = Input(UInt(log2Ceil(MaxZSize).W))
-      val llrInit = Input(Bool())
-      val llrIn   = Input(Vec(MaxZSize, UInt(LLRBits.W)))
+      val isBG1 = Input(Bool())
+      val zSize = Input(UInt(log2Ceil(MaxZSize).W))
+      val llrIn = Flipped(DecoupledIO(Vec(MaxZSize, UInt(LLRBits.W))))
 
       // Output
+      val llrOut = Output(ValidIO(new LDPCDecoderResp))
+
+      // Debug
       val llrRAddr                 = ValidIO(UInt(log2Ceil(MaxColNum).W))
       val shiftValue               = ValidIO(UInt(log2Ceil(MaxZSize).W))
       val llrRIsLastCol            = Output(Bool())
@@ -57,7 +64,6 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
       val llrWAddr                 = ValidIO(UInt(log2Ceil(MaxColNum).W))
       val decoupledFifoIn          = Output(Bool())
       val decoupledFifoOut         = Output(Bool())
-      val llrOut                   = Output(Vec(MaxZSize, UInt(LLRBits.W)))
     })
 
     val isBG1 = io.isBG1
@@ -68,7 +74,8 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
       set = MaxColNum,
       singlePort = false, // need read and write port both
       bypassWrite = true,
-      withClockGate = true
+      withClockGate = true,
+      holdRead = true
     ))
 
     val cyclicShifter   = Module(new CyclicShifter(true))
@@ -91,37 +98,81 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
     val Mv2cFifo      = Module(new Queue(Vec(MaxZSize, SInt((LLRBits + 1).W)), 20))
     val DecoupledFifo = Module(new Queue(Vec(MaxZSize, new C2VMsgInfo), 2))
 
-    // =====================Logic and wire connection=====================
-    val llrRAMRData = LLRRAM.io.r(GCU.io.llrRAddr.valid, GCU.io.llrRAddr.bits).resp.data(0)
-
-    val decoding          = RegInit(false.B)
     val decodeMaxIterDone = Wire(Bool())
     val llrInitCounter    = RegInit(0.U(log2Ceil(MaxColNum).W))
+    val llrOutputCounter  = RegInit(0.U(log2Ceil(MaxColNum).W))
     val colNum            = Mux(isBG1, BG1ColNum.U, BG2ColNum.U)
 
-    when(decodeMaxIterDone) {
-      decoding := false.B
-    }.elsewhen(llrInitCounter === colNum - 1.U) {
-      decoding := true.B
+    // =====================State Machine=====================
+    val m_idle :: m_llrInput :: m_decoding :: m_llrOutput :: Nil = Enum(4)
+    val state                                                    = RegInit(m_idle)
+    val next_state                                               = WireDefault(state)
+    dontTouch(state)
+    dontTouch(next_state)
+    state := next_state
+
+    switch(state) {
+      is(m_idle) {
+        when(io.llrIn.fire) {
+          next_state := m_llrInput
+        }
+      }
+      is(m_llrInput) {
+        when(llrInitCounter === colNum - 1.U) {
+          next_state := m_decoding
+        }
+      }
+      is(m_decoding) {
+        when(decodeMaxIterDone) {
+          next_state := m_llrOutput
+        }
+      }
+      is(m_llrOutput) {
+        when(llrOutputCounter === colNum - 1.U) {
+          next_state := m_idle
+        }
+      }
     }
 
-    when(io.llrInit && llrInitCounter === colNum - 1.U) {
+    io.llrIn.ready := state === m_idle || state === m_llrInput
+
+    // =====================Logic and wire connection=====================
+
+    // llrRAM Write In
+    when(next_state =/= m_llrInput) {
       llrInitCounter := 0.U
-    }.elsewhen(io.llrInit && !decoding) {
+    }.elsewhen(io.llrIn.fire) { // next_state === m_llrInput
       llrInitCounter := llrInitCounter + 1.U
     }
 
-    val llrRAMWAddr = Mux(io.llrInit && !decoding, llrInitCounter, GCU.io.llrWAddr.bits)
-    val llrRAMWData = Mux(io.llrInit && !decoding, io.llrIn, reCyclicShifter.io.out.bits)
+    val llrRAMWAddr = Mux(io.llrIn.ready, llrInitCounter, GCU.io.llrWAddr.bits)
+    val llrRAMWData = Mux(io.llrIn.ready, io.llrIn.bits, reCyclicShifter.io.out.bits)
 
     LLRRAM.io.w(
-      valid = GCU.io.llrWAddr.valid || (io.llrInit && !decoding),
+      valid = (state === m_decoding && GCU.io.llrWAddr.valid) || io.llrIn.fire,
       data = llrRAMWData,
       setIdx = llrRAMWAddr,
       waymask = 1.U
     )
 
-    GCU.io.gcuEn      := decoding
+    // llrRAM Read Out
+    val llrRamOutputRen = state === m_llrOutput
+    when(next_state =/= m_llrOutput) {
+      llrOutputCounter := 0.U
+    }.elsewhen(llrRamOutputRen) { // next_state === m_llrOutput
+      llrOutputCounter := llrOutputCounter + 1.U
+    }
+
+    val llrRAMRData = LLRRAM.io.r(
+      valid = (state === m_decoding && GCU.io.llrRAddr.valid) || llrRamOutputRen,
+      setIdx = Mux(io.llrOut.valid, llrOutputCounter, GCU.io.llrRAddr.bits)
+    ).resp.data(0)
+
+    io.llrOut.valid           := DelayN(llrRamOutputRen, 1)
+    io.llrOut.bits.idx        := DelayN(llrOutputCounter, 1)
+    io.llrOut.bits.decodedLLR := llrRAMRData
+
+    GCU.io.gcuEn      := state === m_decoding
     decodeMaxIterDone := GCU.io.decodeMaxIterDone
     GCU.io.isBG1      := isBG1
 
@@ -188,8 +239,6 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
     reCyclicShifter.io.in.bits.zSize     := io.zSize
     reCyclicShifter.io.in.bits.shiftSize := GCU.io.reShiftValue.bits
     reCyclicShifter.io.out.ready         := true.B
-
-    io.llrOut := reCyclicShifter.io.out.bits // TODO: QSN need 3 cycle
 
     // GCU Output
     io.llrRAddr                 := GCU.io.llrRAddr

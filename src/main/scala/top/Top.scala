@@ -36,10 +36,10 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
   class LDPCDecoderImp(wrapper: LDPCDecoderTop) extends LazyModuleImp(wrapper) {
     val io = IO(new Bundle {
       // Input
-      val llrIn = Flipped(DecoupledIO(new LDPCDecoderReq))
+      val in = Flipped(DecoupledIO(new LLRInTransferReq))
 
       // Output
-      val llrOut = DecoupledIO(new LDPCDecoderResp)
+      val out = DecoupledIO(new LDPCDecoderResp)
 
       // Debug
       val llrRAddr                 = ValidIO(UInt(log2Ceil(MaxColNum).W))
@@ -62,11 +62,13 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
       val decoupledFifoIn          = Output(Bool())
       val decoupledFifoOut         = Output(Bool())
     })
+    val llrInTransfer = Module(new LLRInTransfer)
 
     val ldpcDecoderCore = Module(new LDPCDecoderCore)
 
-    io.llrIn <> ldpcDecoderCore.io.llrIn
-    io.llrOut <> ldpcDecoderCore.io.llrOut
+    llrInTransfer.io.in <> io.in
+    ldpcDecoderCore.io.llrIn <> llrInTransfer.io.out
+    io.out <> ldpcDecoderCore.io.llrOut
 
     io.llrRAddr                 := ldpcDecoderCore.io.llrRAddr
     io.shiftValue               := ldpcDecoderCore.io.shiftValue

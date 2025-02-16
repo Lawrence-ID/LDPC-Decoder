@@ -39,7 +39,7 @@ class LLRInTransfer(implicit p: Parameters) extends DecModule {
   // =====================State Machine=====================
   val m_idle :: m_in :: m_out :: Nil = Enum(3)
 
-  val state = RegInit(m_idle)
+  val state      = RegInit(m_idle)
   val next_state = WireDefault(state)
   dontTouch(state)
   dontTouch(next_state)
@@ -63,7 +63,7 @@ class LLRInTransfer(implicit p: Parameters) extends DecModule {
     }
   }
 
-  io.in.ready := Mux(state === m_out, false.B, true.B)
+  io.in.ready  := Mux(state === m_out, false.B, true.B)
   io.out.valid := Mux(state === m_out, true.B, false.B)
 
   io.out.bits.isBG1 := io.in.bits.isBG1
@@ -79,7 +79,6 @@ class LLRInTransfer(implicit p: Parameters) extends DecModule {
   for (ii <- 0 until (LLRFromWidth / 8)) {
     rawLLR_slice(ii) := io.in.bits.llrBlock(ii * 8 + LLRBits - 1, ii * 8)
   }
-  
 
   val rawLLR_in_1ZcGroup =
     Reg(Vec(MaxZSize * 8 / LLRFromWidth, UInt((LLRFromWidth / 8 * LLRBits).W))) // (256 / 8) llr(LLRBits.W)

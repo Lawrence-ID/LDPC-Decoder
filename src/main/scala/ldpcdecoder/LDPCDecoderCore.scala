@@ -100,7 +100,7 @@ class LDPCDecoderCore(implicit p: Parameters) extends DecModule {
       }
     }
     is(m_llrInput) {
-      when(llrInitCounter === colNum - 1.U) {
+      when(llrInitCounter === colNum - 1.U && io.llrIn.fire) {
         next_state := m_decoding
       }
     }

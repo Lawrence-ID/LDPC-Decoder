@@ -40,7 +40,19 @@ VerilatedVcdC *tfp = new VerilatedVcdC;
 #endif
 
 int8_t llr_in[MAX_COL][MAX_Zc];
-int Zc = 3;
+// =============zSize Value=============
+// iLS = 0: {2, 4, 8, 16, 32, 64, 128, 256}
+// iLS = 1: {3, 6, 12, 24, 48, 96, 192, 384}
+// iLS = 2: {5, 10, 20, 40, 80, 160, 320}
+// iLS = 3: {7, 14, 28, 56, 112, 224}
+// iLS = 4: {9, 18, 36, 72, 144, 288}
+// iLS = 5: {11, 22, 44, 88, 176, 352}
+// iLS = 6: {13, 26, 52, 104, 208}
+// iLS = 7: {15, 30, 60, 120, 240}
+int table[8] = {2, 3, 5, 7, 9, 11, 13, 15};
+int iLS = 1;
+int zPow = 0;
+int Zc = table[iLS] * (1 << zPow);
 int BG = 1;
 int llrWrLayer = 0;
 int MaxIter = 8;
@@ -172,7 +184,8 @@ int main(int argc, char **argv){
     step();step();
     top->reset = 0;
 
-    top->io_in_bits_zSize = Zc;
+    top->io_in_bits_iLS = iLS;
+    top->io_in_bits_zPow = zPow;
     top->io_in_bits_isBG1 = 1;
 
     top->io_out_ready = 1;
@@ -196,12 +209,12 @@ int main(int argc, char **argv){
         top->io_in_bits_llrBlock = data;
         // print_bit(top->io_in_bits_llrBlock);
 
-        if (top->rootp->io_llrWAddr_valid == 0 && prev_tick_llrWValid == 1){
+        if (top->rootp->LDPCDecoderTop__DOT__ldpcDecoderCore__DOT___GCU_io_llrWAddr_valid == 0 && prev_tick_llrWValid == 1){
             printf("i = %d\n", i);
             printLLRRAM(llrWrLayer, BG, Zc, llrRAM_file);
             llrWrLayer++;
         }
-        prev_tick_llrWValid = top->rootp->io_llrWAddr_valid;
+        prev_tick_llrWValid = top->rootp->LDPCDecoderTop__DOT__ldpcDecoderCore__DOT___GCU_io_llrWAddr_valid;
         step();step();
         if(top->io_in_valid == 1 && top->io_in_ready == 1) {
             llr_256block_k++;

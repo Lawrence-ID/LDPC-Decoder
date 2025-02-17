@@ -44,7 +44,11 @@ class LLRAddrGenerator(implicit p: Parameters) extends DecModule {
 
 class ShiftValueGenerator(implicit p: Parameters) extends DecModule {
   val io = IO(new Bundle {
-    val isBG1      = Input(Bool())
+    val isBG1 = Input(Bool())
+    val iLS   = Input(UInt(log2Ceil(8).W))
+    val zPow  = Input(UInt(log2Ceil(8).W))
+    val zSize = Input(UInt(log2Ceil(MaxZSize).W))
+
     val shiftEn    = Input(Bool())
     val shiftValue = Output(UInt(log2Ceil(MaxZSize).W))
 
@@ -52,6 +56,9 @@ class ShiftValueGenerator(implicit p: Parameters) extends DecModule {
     val reShiftValue = Output(UInt(log2Ceil(MaxZSize).W))
   })
   val isBG1 = io.isBG1
+  val zSize = io.zSize
+  val iLS   = io.iLS
+  val zPow  = io.zPow
   assert(BG1ShiftValue.length > BG2ShiftValue.length)
   val BG2ShiftValuePadded = BG2ShiftValue.padTo(BG1ShiftValue.length, 0)
   val shiftValueVec = Mux(
@@ -69,7 +76,8 @@ class ShiftValueGenerator(implicit p: Parameters) extends DecModule {
       shiftCounter := shiftCounter + 1.U
     }
   }
-  io.shiftValue := shiftValueVec(shiftCounter)
+
+  val shiftValueInHBG = shiftValueVec(shiftCounter)
 
   val reShiftCounter = RegInit(0.U(log2Ceil(MaxShiftValueVecLen).W))
   when(io.reShiftEn === 1.U) {
@@ -79,13 +87,20 @@ class ShiftValueGenerator(implicit p: Parameters) extends DecModule {
       reShiftCounter := reShiftCounter + 1.U
     }
   }
-  io.reShiftValue := shiftValueVec(reShiftCounter)
+  val reShiftValueInHBG = shiftValueVec(reShiftCounter)
+
+  // actual shift value = shiftValueInHBG % zSize
+  io.shiftValue   := shiftValueInHBG   % zSize
+  io.reShiftValue := reShiftValueInHBG % zSize
 }
 
 class GCU(implicit p: Parameters) extends DecModule {
   val io = IO(new Bundle {
-    val isBG1 = Input(Bool())
     val gcuEn = Input(Bool())
+    val isBG1 = Input(Bool())
+    val iLS   = Input(UInt(log2Ceil(8).W))
+    val zPow  = Input(UInt(log2Ceil(8).W))
+    val zSize = Input(UInt(log2Ceil(MaxZSize).W))
 
     val llrRAddr                 = ValidIO(UInt(log2Ceil(MaxColNum).W))
     val shiftValue               = ValidIO(UInt(log2Ceil(MaxZSize).W))
@@ -113,6 +128,9 @@ class GCU(implicit p: Parameters) extends DecModule {
   val llrRamRen           = WireInit(false.B)
   val llrRamWen           = WireInit(false.B)
   val isBG1               = io.isBG1
+  val zSize               = io.zSize
+  val iLS                 = io.iLS
+  val zPow                = io.zPow
   val BG2NumAtLayerPadded = BG2NumAtLayer.padTo(BG1NumAtLayer.length, 0)
   val numAtLayer = Mux(
     isBG1,
@@ -191,6 +209,9 @@ class GCU(implicit p: Parameters) extends DecModule {
   val shiftValueGenerator = Module(new ShiftValueGenerator)
   shiftValueGenerator.io.shiftEn := llrReadyToShift
   shiftValueGenerator.io.isBG1   := isBG1
+  shiftValueGenerator.io.zSize   := zSize
+  shiftValueGenerator.io.iLS     := iLS
+  shiftValueGenerator.io.zPow    := zPow
 
   io.shiftValue.valid := llrReadyToShift
   io.shiftValue.bits  := shiftValueGenerator.io.shiftValue

@@ -19,18 +19,6 @@ trait HasDecoderParameter {
   val debugOpts = p(DebugOptionsKey)
 }
 
-class LDPCDecoderReq(implicit p: Parameters) extends DecBundle {
-  val isBG1  = Bool()
-  val zSize  = UInt(log2Ceil(MaxZSize).W)
-  val rawLLR = Vec(MaxZSize, UInt(LLRBits.W))
-}
-
-class LDPCDecoderResp(implicit p: Parameters) extends DecBundle {
-  val idx        = UInt(log2Ceil(MaxZSize).W)
-  val last       = Bool()
-  val decodedLLR = Vec(MaxZSize, UInt(LLRBits.W))
-}
-
 class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecParameter {
 
   class LDPCDecoderImp(wrapper: LDPCDecoderTop) extends LazyModuleImp(wrapper) {
@@ -39,56 +27,59 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
       val in = Flipped(DecoupledIO(new LLRInTransferReq))
 
       // Output
-      val out = DecoupledIO(new LDPCDecoderResp)
+      val out = DecoupledIO(new LLROutTransferReq)
 
       // Debug
-      val llrRAddr                 = ValidIO(UInt(log2Ceil(MaxColNum).W))
-      val shiftValue               = ValidIO(UInt(log2Ceil(MaxZSize).W))
-      val llrRIsLastCol            = Output(Bool())
-      val llrReadyToShiftIsLastCal = Output(Bool())
-      val c2vRamRdReq              = ValidIO(UInt(log2Ceil(MaxLayerNum).W))
-      val v2cSignRamRdReq          = ValidIO(UInt(log2Ceil(MaxEdgeNum).W))
-      val v2cSignRamWrReq          = ValidIO(UInt(log2Ceil(MaxEdgeNum).W))
-      val v2cFifoIn                = Output(Bool())
-      val vnuCoreEn                = Output(Bool())
-      val vnuCoreCounter           = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
-      val vnuLayerCounter          = Output(UInt(log2Ceil(MaxLayerNum).W))
-      val v2cFifoOut               = Output(Bool())
-      val cnuCoreEn                = Output(Bool())
-      val cnuCoreCounter           = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
-      val cnuLayerCounter          = Output(UInt(log2Ceil(MaxLayerNum).W))
-      val reShiftValue             = ValidIO(UInt(log2Ceil(MaxZSize).W))
-      val llrWAddr                 = ValidIO(UInt(log2Ceil(MaxColNum).W))
-      val decoupledFifoIn          = Output(Bool())
-      val decoupledFifoOut         = Output(Bool())
+      // val llrRAddr                 = ValidIO(UInt(log2Ceil(MaxColNum).W))
+      // val shiftValue               = ValidIO(UInt(log2Ceil(MaxZSize).W))
+      // val llrRIsLastCol            = Output(Bool())
+      // val llrReadyToShiftIsLastCal = Output(Bool())
+      // val c2vRamRdReq              = ValidIO(UInt(log2Ceil(MaxLayerNum).W))
+      // val v2cSignRamRdReq          = ValidIO(UInt(log2Ceil(MaxEdgeNum).W))
+      // val v2cSignRamWrReq          = ValidIO(UInt(log2Ceil(MaxEdgeNum).W))
+      // val v2cFifoIn                = Output(Bool())
+      // val vnuCoreEn                = Output(Bool())
+      // val vnuCoreCounter           = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
+      // val vnuLayerCounter          = Output(UInt(log2Ceil(MaxLayerNum).W))
+      // val v2cFifoOut               = Output(Bool())
+      // val cnuCoreEn                = Output(Bool())
+      // val cnuCoreCounter           = Output(UInt(log2Ceil(MaxDegreeOfCNU).W))
+      // val cnuLayerCounter          = Output(UInt(log2Ceil(MaxLayerNum).W))
+      // val reShiftValue             = ValidIO(UInt(log2Ceil(MaxZSize).W))
+      // val llrWAddr                 = ValidIO(UInt(log2Ceil(MaxColNum).W))
+      // val decoupledFifoIn          = Output(Bool())
+      // val decoupledFifoOut         = Output(Bool())
     })
-    val llrInTransfer = Module(new LLRInTransfer)
+
+    val llrInTransfer  = Module(new LLRInTransfer)
+    val llrOutTransfer = Module(new LLROutTransfer)
 
     val ldpcDecoderCore = Module(new LDPCDecoderCore)
 
     llrInTransfer.io.in <> io.in
     ldpcDecoderCore.io.llrIn <> llrInTransfer.io.out
-    io.out <> ldpcDecoderCore.io.llrOut
+    llrOutTransfer.io.in <> ldpcDecoderCore.io.llrOut
+    io.out <> llrOutTransfer.io.out
 
-    io.llrRAddr                 := ldpcDecoderCore.io.llrRAddr
-    io.shiftValue               := ldpcDecoderCore.io.shiftValue
-    io.llrRIsLastCol            := ldpcDecoderCore.io.llrRIsLastCol
-    io.llrReadyToShiftIsLastCal := ldpcDecoderCore.io.llrReadyToShiftIsLastCal
-    io.c2vRamRdReq              := ldpcDecoderCore.io.c2vRamRdReq
-    io.v2cSignRamRdReq          := ldpcDecoderCore.io.v2cSignRamRdReq
-    io.v2cSignRamWrReq          := ldpcDecoderCore.io.v2cSignRamWrReq
-    io.v2cFifoIn                := ldpcDecoderCore.io.v2cFifoIn
-    io.vnuCoreEn                := ldpcDecoderCore.io.vnuCoreEn
-    io.vnuCoreCounter           := ldpcDecoderCore.io.vnuCoreCounter
-    io.vnuLayerCounter          := ldpcDecoderCore.io.vnuLayerCounter
-    io.v2cFifoOut               := ldpcDecoderCore.io.v2cFifoOut
-    io.cnuCoreEn                := ldpcDecoderCore.io.cnuCoreEn
-    io.cnuCoreCounter           := ldpcDecoderCore.io.cnuCoreCounter
-    io.cnuLayerCounter          := ldpcDecoderCore.io.cnuLayerCounter
-    io.reShiftValue             := ldpcDecoderCore.io.reShiftValue
-    io.llrWAddr                 := ldpcDecoderCore.io.llrWAddr
-    io.decoupledFifoIn          := ldpcDecoderCore.io.decoupledFifoIn
-    io.decoupledFifoOut         := ldpcDecoderCore.io.decoupledFifoOut
+    // io.llrRAddr                 := ldpcDecoderCore.io.llrRAddr
+    // io.shiftValue               := ldpcDecoderCore.io.shiftValue
+    // io.llrRIsLastCol            := ldpcDecoderCore.io.llrRIsLastCol
+    // io.llrReadyToShiftIsLastCal := ldpcDecoderCore.io.llrReadyToShiftIsLastCal
+    // io.c2vRamRdReq              := ldpcDecoderCore.io.c2vRamRdReq
+    // io.v2cSignRamRdReq          := ldpcDecoderCore.io.v2cSignRamRdReq
+    // io.v2cSignRamWrReq          := ldpcDecoderCore.io.v2cSignRamWrReq
+    // io.v2cFifoIn                := ldpcDecoderCore.io.v2cFifoIn
+    // io.vnuCoreEn                := ldpcDecoderCore.io.vnuCoreEn
+    // io.vnuCoreCounter           := ldpcDecoderCore.io.vnuCoreCounter
+    // io.vnuLayerCounter          := ldpcDecoderCore.io.vnuLayerCounter
+    // io.v2cFifoOut               := ldpcDecoderCore.io.v2cFifoOut
+    // io.cnuCoreEn                := ldpcDecoderCore.io.cnuCoreEn
+    // io.cnuCoreCounter           := ldpcDecoderCore.io.cnuCoreCounter
+    // io.cnuLayerCounter          := ldpcDecoderCore.io.cnuLayerCounter
+    // io.reShiftValue             := ldpcDecoderCore.io.reShiftValue
+    // io.llrWAddr                 := ldpcDecoderCore.io.llrWAddr
+    // io.decoupledFifoIn          := ldpcDecoderCore.io.decoupledFifoIn
+    // io.decoupledFifoOut         := ldpcDecoderCore.io.decoupledFifoOut
 
   }
 

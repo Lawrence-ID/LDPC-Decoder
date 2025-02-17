@@ -23,8 +23,10 @@ import top._
 import utility._
 
 class LLRInTransferReq(implicit p: Parameters) extends DecBundle {
-  val isBG1    = Bool()
-  val zSize    = UInt(log2Ceil(MaxZSize).W)
+  val isBG1 = Bool()
+  val iLS   = UInt(log2Ceil(8).W)
+  val zPow  = UInt(log2Ceil(8).W)
+  // zSize = table(iLS) * 2^zPow
   val llrBlock = UInt(LLRFromWidth.W) // 256 / 8 = 32 llr(8.W)
 }
 
@@ -67,7 +69,8 @@ class LLRInTransfer(implicit p: Parameters) extends DecModule {
   io.out.valid := Mux(state === m_out, true.B, false.B)
 
   io.out.bits.isBG1 := io.in.bits.isBG1
-  io.out.bits.zSize := io.in.bits.zSize
+  io.out.bits.iLS   := io.in.bits.iLS
+  io.out.bits.zPow  := io.in.bits.zPow
 
   when(next_state =/= m_in) {
     shiftCounter := 0.U

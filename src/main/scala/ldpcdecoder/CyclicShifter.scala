@@ -21,7 +21,7 @@ class CyclicShifter(val shiftLeft: Boolean = true)(implicit p: Parameters) exten
 
   val QSNs = Seq.fill(LLRBits)(Module(new QSN(shiftLeft)))
 
-  val shiftSize = io.in.bits.shiftSize % io.in.bits.zSize // ensure actual shiftSize <= zSize
+  val shiftSize = io.in.bits.shiftSize // ensure actual shiftSize <= zSize
 
   for (i <- 0 until LLRBits) {
     QSNs(i).io.in.valid := io.in.fire

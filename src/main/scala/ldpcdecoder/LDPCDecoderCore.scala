@@ -7,7 +7,8 @@ import utility._
 
 class LDPCDecoderReq(implicit p: Parameters) extends DecBundle {
   val isBG1  = Bool()
-  val zSize  = UInt(log2Ceil(MaxZSize).W)
+  val iLS    = UInt(log2Ceil(8).W)
+  val zPow   = UInt(log2Ceil(8).W)
   val rawLLR = Vec(MaxZSize, UInt(LLRBits.W))
 }
 
@@ -15,6 +16,24 @@ class LDPCDecoderResp(implicit p: Parameters) extends DecBundle {
   val idx        = UInt(log2Ceil(MaxZSize).W)
   val last       = Bool()
   val decodedLLR = Vec(MaxZSize, UInt(LLRBits.W))
+}
+
+object zSizeCalculator {
+  def apply(iLS: UInt, zPow: UInt): UInt = {
+
+    val zSizeTable = VecInit(Seq(
+      VecInit(Seq(2.U(9.W), 4.U(9.W), 8.U(9.W), 16.U(9.W), 32.U(9.W), 64.U(9.W), 128.U(9.W), 256.U(9.W))),
+      VecInit(Seq(3.U(9.W), 6.U(9.W), 12.U(9.W), 24.U(9.W), 48.U(9.W), 96.U(9.W), 192.U(9.W), 384.U(9.W))),
+      VecInit(Seq(5.U(9.W), 10.U(9.W), 20.U(9.W), 40.U(9.W), 80.U(9.W), 160.U(9.W), 320.U(9.W), 0.U(9.W))),
+      VecInit(Seq(7.U(9.W), 14.U(9.W), 28.U(9.W), 56.U(9.W), 112.U(9.W), 224.U(9.W), 0.U(9.W), 0.U(9.W))),
+      VecInit(Seq(9.U(9.W), 18.U(9.W), 36.U(9.W), 72.U(9.W), 144.U(9.W), 288.U(9.W), 0.U(9.W), 0.U(9.W))),
+      VecInit(Seq(11.U(9.W), 22.U(9.W), 44.U(9.W), 88.U(9.W), 176.U(9.W), 352.U(9.W), 0.U(9.W), 0.U(9.W))),
+      VecInit(Seq(13.U(9.W), 26.U(9.W), 52.U(9.W), 104.U(9.W), 208.U(9.W), 0.U(9.W), 0.U(9.W), 0.U(9.W))),
+      VecInit(Seq(15.U(9.W), 30.U(9.W), 60.U(9.W), 120.U(9.W), 240.U(9.W), 0.U(9.W), 0.U(9.W), 0.U(9.W)))
+    ))
+
+    zSizeTable(iLS)(zPow)
+  }
 }
 
 class LDPCDecoderCore(implicit p: Parameters) extends DecModule {
@@ -46,9 +65,6 @@ class LDPCDecoderCore(implicit p: Parameters) extends DecModule {
     val decoupledFifoIn          = Output(Bool())
     val decoupledFifoOut         = Output(Bool())
   })
-
-  val isBG1 = io.llrIn.bits.isBG1
-  val zSize = io.llrIn.bits.zSize
 
   // =====================RAMs and Fifos Definition=====================
   val LLRRAM = Module(new SRAMTemplate(
@@ -83,12 +99,20 @@ class LDPCDecoderCore(implicit p: Parameters) extends DecModule {
   val decodeMaxIterDone = Wire(Bool())
   val llrInitCounter    = RegInit(0.U(log2Ceil(MaxColNum).W))
   val llrOutputCounter  = RegInit(0.U(log2Ceil(MaxColNum).W))
-  val colNum            = Mux(isBG1, BG1ColNum.U, BG2ColNum.U)
 
   // =====================State Machine=====================
   val m_idle :: m_llrInput :: m_decoding :: m_llrOutput :: Nil = Enum(4)
   val state                                                    = RegInit(m_idle)
   val next_state                                               = WireDefault(state)
+
+  val isBG1  = RegEnable(io.llrIn.bits.isBG1, state === m_idle && next_state === m_llrInput)
+  val iLS    = RegEnable(io.llrIn.bits.iLS, state === m_idle && next_state === m_llrInput)
+  val zPow   = RegEnable(io.llrIn.bits.zPow, state === m_idle && next_state === m_llrInput)
+  val colNum = Mux(isBG1, BG1ColNum.U, BG2ColNum.U)
+
+  val zSize =
+    RegEnable(zSizeCalculator(iLS, zPow), 0.U(log2Ceil(MaxZSize).W), state === m_llrInput && next_state === m_decoding)
+
   dontTouch(state)
   dontTouch(next_state)
   state := next_state
@@ -159,6 +183,9 @@ class LDPCDecoderCore(implicit p: Parameters) extends DecModule {
   GCU.io.gcuEn      := state === m_decoding
   decodeMaxIterDone := GCU.io.decodeMaxIterDone
   GCU.io.isBG1      := isBG1
+  GCU.io.zSize      := zSize
+  GCU.io.iLS        := iLS
+  GCU.io.zPow       := zPow
 
   // CyclicShifter Input
   cyclicShifter.io.in.valid          := GCU.io.shiftValue.valid // shift en

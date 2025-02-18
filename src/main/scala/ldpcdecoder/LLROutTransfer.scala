@@ -29,7 +29,7 @@ import utility._
 // }
 
 class LLROutTransferReq(implicit p: Parameters) extends DecBundle {
-  val idx         = UInt(log2Ceil(MaxZSize).W)
+  val idx         = UInt(log2Ceil(MaxColNum).W)
   val last        = Bool()
   val decodedBits = UInt(MaxZSize.W)
 }

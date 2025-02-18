@@ -13,7 +13,7 @@ class LDPCDecoderReq(implicit p: Parameters) extends DecBundle {
 }
 
 class LDPCDecoderResp(implicit p: Parameters) extends DecBundle {
-  val idx        = UInt(log2Ceil(MaxZSize).W)
+  val idx        = UInt(log2Ceil(MaxColNum).W)
   val last       = Bool()
   val decodedLLR = Vec(MaxZSize, UInt(LLRBits.W))
 }
@@ -72,7 +72,8 @@ class LDPCDecoderCore(implicit p: Parameters) extends DecModule {
     set = MaxColNum,
     singlePort = false, // need read and write port both
     bypassWrite = true,
-    withClockGate = true,
+    withClockGate = false,
+    separateGateClock = false,
     holdRead = true
   ))
 
@@ -191,6 +192,8 @@ class LDPCDecoderCore(implicit p: Parameters) extends DecModule {
   cyclicShifter.io.in.valid          := GCU.io.shiftValue.valid // shift en
   cyclicShifter.io.in.bits.llr       := llrRAMRData             // need to be read from llrRam
   cyclicShifter.io.in.bits.zSize     := zSize
+  cyclicShifter.io.in.bits.iLS       := iLS
+  cyclicShifter.io.in.bits.zPow      := zPow
   cyclicShifter.io.in.bits.shiftSize := GCU.io.shiftValue.bits
   cyclicShifter.io.out.ready         := GCU.io.vnuCoreEn
 
@@ -248,6 +251,8 @@ class LDPCDecoderCore(implicit p: Parameters) extends DecModule {
   reCyclicShifter.io.in.valid          := GCU.io.reShiftValue.valid
   reCyclicShifter.io.in.bits.llr       := cnus.io.out.unshiftedLLR
   reCyclicShifter.io.in.bits.zSize     := zSize
+  reCyclicShifter.io.in.bits.iLS       := iLS
+  reCyclicShifter.io.in.bits.zPow      := zPow
   reCyclicShifter.io.in.bits.shiftSize := GCU.io.reShiftValue.bits
   reCyclicShifter.io.out.ready         := true.B
 

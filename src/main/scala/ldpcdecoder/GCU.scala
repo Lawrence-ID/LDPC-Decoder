@@ -49,10 +49,10 @@ class ShiftValueGenerator(implicit p: Parameters) extends DecModule {
     val zPow  = Input(UInt(log2Ceil(8).W))
     val zSize = Input(UInt(log2Ceil(MaxZSize).W))
 
-    val shiftEn    = Input(Bool())
+    val shiftValueRen    = Input(Bool())
     val shiftValue = Output(UInt(log2Ceil(MaxZSize).W))
 
-    val reShiftEn    = Input(Bool())
+    val reShiftValueRen    = Input(Bool())
     val reShiftValue = Output(UInt(log2Ceil(MaxZSize).W))
   })
   val isBG1 = io.isBG1
@@ -69,7 +69,7 @@ class ShiftValueGenerator(implicit p: Parameters) extends DecModule {
   val shiftValueVecLen = Mux(isBG1, BG1ShiftValue.length.U, BG2ShiftValue.length.U)
 
   val shiftCounter = RegInit(0.U(log2Ceil(MaxShiftValueVecLen).W))
-  when(io.shiftEn === 1.U) {
+  when(io.shiftValueRen === 1.U) {
     when(shiftCounter === shiftValueVecLen - 1.U) {
       shiftCounter := 0.U
     }.otherwise {
@@ -77,21 +77,21 @@ class ShiftValueGenerator(implicit p: Parameters) extends DecModule {
     }
   }
 
-  val shiftValueInHBG = shiftValueVec(shiftCounter)
+  val shiftValueInHBG = RegEnable(shiftValueVec(shiftCounter), io.shiftValueRen)
 
   val reShiftCounter = RegInit(0.U(log2Ceil(MaxShiftValueVecLen).W))
-  when(io.reShiftEn === 1.U) {
+  when(io.reShiftValueRen === 1.U) {
     when(reShiftCounter === shiftValueVecLen - 1.U) {
       reShiftCounter := 0.U
     }.otherwise {
       reShiftCounter := reShiftCounter + 1.U
     }
   }
-  val reShiftValueInHBG = shiftValueVec(reShiftCounter)
+  val reShiftValueInHBG = RegEnable(shiftValueVec(reShiftCounter), io.reShiftValueRen)
 
   // actual shift value = shiftValueInHBG % zSize
-  io.shiftValue   := shiftValueInHBG   % zSize
-  io.reShiftValue := reShiftValueInHBG % zSize
+  io.shiftValue   := shiftValueInHBG
+  io.reShiftValue := reShiftValueInHBG
 }
 
 class GCU(implicit p: Parameters) extends DecModule {
@@ -206,8 +206,9 @@ class GCU(implicit p: Parameters) extends DecModule {
   val llrReadyToShiftIsLastCal = DelayN(llrAddrGenerator.io.isLastCol, 1)
   io.llrReadyToShiftIsLastCal := llrReadyToShiftIsLastCal
 
+  val shiftValueRen = llrRamRen
   val shiftValueGenerator = Module(new ShiftValueGenerator)
-  shiftValueGenerator.io.shiftEn := llrReadyToShift
+  shiftValueGenerator.io.shiftValueRen := shiftValueRen
   shiftValueGenerator.io.isBG1   := isBG1
   shiftValueGenerator.io.zSize   := zSize
   shiftValueGenerator.io.iLS     := iLS
@@ -378,7 +379,7 @@ class GCU(implicit p: Parameters) extends DecModule {
   io.cnuIterCounter  := cnuIterCounter
 
   io.reShiftValue.valid            := DelayN(cnuCoreBegin, DelayOfCNU)
-  shiftValueGenerator.io.reShiftEn := io.reShiftValue.valid
+  shiftValueGenerator.io.reShiftValueRen := DelayN(cnuCoreBegin, DelayOfCNU - 1)
   io.reShiftValue.bits             := shiftValueGenerator.io.reShiftValue
 
   val reShifterDone = DelayN(cnuCoreBegin, DelayOfCNU + DelayOfShifter)

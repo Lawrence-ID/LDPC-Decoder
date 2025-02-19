@@ -61,7 +61,7 @@ class CNUCore(implicit p: Parameters) extends DecModule {
 
 class CNUsInput(implicit p: Parameters) extends DecBundle {
   val en      = Bool()
-  val zSize   = UInt(log2Ceil(MaxZSize).W)
+  val mask    = UInt(MaxZSize.W)
   val counter = UInt(log2Ceil(MaxDegreeOfCNU).W)
   val v2cMsg  = Vec(MaxZSize, SInt((LLRBits + 1).W))
   // val gsgn = Vec(MaxZSize, UInt(1.W))
@@ -87,11 +87,9 @@ class CNUs(implicit p: Parameters) extends DecModule {
 
   val cnuCores = Seq.fill(MaxZSize)(Module(new CNUCore))
 
-  val bitMask = (1.U << io.in.zSize) - 1.U
-
   cnuCores.zipWithIndex.foreach {
     case (core, i) =>
-      core.io.in.en      := bitMask(i) && io.in.en
+      core.io.in.en      := io.in.mask(i) && io.in.en
       core.io.in.counter := io.in.counter
       core.io.in.v2cMsg  := io.in.v2cMsg(i)
       core.io.in.gsgn    := io.in.c2vRowMsg(i).gsgn

@@ -113,6 +113,7 @@ class LDPCDecoderCore(implicit p: Parameters) extends DecModule {
 
   val zSize =
     RegEnable(zSizeCalculator(iLS, zPow), 0.U(log2Ceil(MaxZSize).W), state === m_llrInput && next_state === m_decoding)
+  val vnus_cnus_mask = RegEnable((1.U << zSize) - 1.U, 0.U(MaxZSize.W), RegNext(state === m_llrInput && next_state === m_decoding))
 
   dontTouch(state)
   dontTouch(next_state)
@@ -209,7 +210,7 @@ class LDPCDecoderCore(implicit p: Parameters) extends DecModule {
     VecInit(Seq.fill(MaxZSize)(0.U(C2VRowMsgBits.W)))
   )
   vnus.io.in.en           := GCU.io.vnuCoreEn
-  vnus.io.in.zSize        := zSize
+  vnus.io.in.mask        := vnus_cnus_mask
   vnus.io.in.counter      := GCU.io.vnuCoreCounter
   vnus.io.in.v2cSignOld   := v2cSignPrevIter
   vnus.io.in.c2vRowMsgOld := c2vRowMsgPrevIter
@@ -224,7 +225,7 @@ class LDPCDecoderCore(implicit p: Parameters) extends DecModule {
 
   // CNUs Input
   cnus.io.in.en        := GCU.io.cnuCoreEn
-  cnus.io.in.zSize     := zSize
+  cnus.io.in.mask      := vnus_cnus_mask
   cnus.io.in.counter   := GCU.io.cnuCoreCounter
   cnus.io.in.v2cMsg    := Mv2cFifo.io.deq.bits
   cnus.io.in.c2vRowMsg := DecoupledFifo.io.deq.bits

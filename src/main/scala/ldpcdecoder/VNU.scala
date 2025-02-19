@@ -30,35 +30,48 @@ class VNUCore(implicit p: Parameters) extends DecModule {
   val io = IO(new VNUCoreIO())
 
   // Stage 0
-  val gsgnOld = io.in.c2vRowMsgOld(0).asUInt
-  val min0Old = io.in.c2vRowMsgOld(C2VMsgMagWidth, 1).asUInt
-  val min1Old = io.in.c2vRowMsgOld(2 * C2VMsgMagWidth, 1 + C2VMsgMagWidth).asUInt
-  val idx0Old = io.in.c2vRowMsgOld(2 * C2VMsgMagWidth + log2Ceil(MaxDegreeOfCNU), 1 + 2 * C2VMsgMagWidth).asUInt
+  // val in_en           = RegEnable(io.in.en          , false.B, io.in.en)
+  // val in_v2cSignOld   = RegEnable(io.in.v2cSignOld  , 0.U    , io.in.en)
+  // val in_c2vRowMsgOld = RegEnable(io.in.c2vRowMsgOld, 0.U    , io.in.en)
+  // val in_counter      = RegEnable(io.in.counter     , 0.U    , io.in.en)
+  // val in_shiftedLLR   = RegEnable(io.in.shiftedLLR  , 0.S    , io.in.en)
+
+  val in_en           = io.in.en          
+  val in_v2cSignOld   = io.in.v2cSignOld  
+  val in_c2vRowMsgOld = io.in.c2vRowMsgOld
+  val in_counter      = io.in.counter     
+  val in_shiftedLLR   = io.in.shiftedLLR  
+
+  // Stage 1
+  val gsgnOld = in_c2vRowMsgOld(0).asUInt
+  val min0Old = in_c2vRowMsgOld(C2VMsgMagWidth, 1).asUInt
+  val min1Old = in_c2vRowMsgOld(2 * C2VMsgMagWidth, 1 + C2VMsgMagWidth).asUInt
+  val idx0Old = in_c2vRowMsgOld(2 * C2VMsgMagWidth + log2Ceil(MaxDegreeOfCNU), 1 + 2 * C2VMsgMagWidth).asUInt
 
   val signMagCombinator = Module(new SignMagCmb(LLRBits - 3))
-  signMagCombinator.io.en        := io.in.en
-  signMagCombinator.io.sign      := gsgnOld ^ io.in.v2cSignOld
-  signMagCombinator.io.magnitude := Mux(idx0Old === io.in.counter, min1Old, min0Old)
+  signMagCombinator.io.en        := in_en
+  signMagCombinator.io.sign      := gsgnOld ^ in_v2cSignOld
+  signMagCombinator.io.magnitude := Mux(idx0Old === in_counter, min1Old, min0Old)
 
   val c2vMsgPrevIter = Wire(SInt(LLRBits.W))
   c2vMsgPrevIter := signMagCombinator.io.out
 
   val v2cMsg = Wire(SInt((LLRBits + 1).W))
-  v2cMsg        := io.in.shiftedLLR -& c2vMsgPrevIter // keep the carry bit
+  v2cMsg        := in_shiftedLLR -& c2vMsgPrevIter // keep the carry bit
   io.out.v2cMsg := v2cMsg
 
-  // printf(p"shiftedLLR: ${io.in.shiftedLLR}, c2vMsgPrevIter: ${c2vMsgPrevIter}, v2cMsg: ${v2cMsg}(${Binary(v2cMsg.asUInt)}), v2cMsg.valid: ${io.in.en} \n")
+  // printf(p"shiftedLLR: ${in_shiftedLLR}, c2vMsgPrevIter: ${c2vMsgPrevIter}, v2cMsg: ${v2cMsg}(${Binary(v2cMsg.asUInt)}), v2cMsg.valid: ${in_en} \n")
 
-  val v2cMsgReg = RegEnable(v2cMsg, 0.S((LLRBits + 1).W), io.in.en)
+  val v2cMsgReg = RegEnable(v2cMsg, 0.S((LLRBits + 1).W), in_en)
 
-  // Stage 1
+  // Stage 2
   val gsgn = RegInit(0.U(1.W))
   val min0 = RegInit(Fill(LLRBits, 1.U(1.W)))
   val min1 = RegInit(Fill(LLRBits, 1.U(1.W)))
   val idx0 = RegInit(0.U(log2Ceil(MaxDegreeOfCNU).W))
 
-  val enDelayed      = RegNext(io.in.en, init = false.B)
-  val counterDelayed = RegEnable(io.in.counter, 0.U(log2Ceil(MaxDegreeOfCNU).W), io.in.en)
+  val enDelayed      = RegNext(in_en, init = false.B)
+  val counterDelayed = RegEnable(in_counter, 0.U(log2Ceil(MaxDegreeOfCNU).W), in_en)
 
   val signMagSeperator = Module(new SignMagSep(LLRBits))
   signMagSeperator.io.en := enDelayed
@@ -97,7 +110,7 @@ class C2VMsgInfo(implicit p: Parameters) extends DecBundle {
 
 class VNUsInput(implicit p: Parameters) extends DecBundle {
   val en           = Bool()
-  val zSize        = UInt(log2Ceil(MaxZSize).W)
+  val mask         = UInt(MaxZSize.W)
   val v2cSignOld   = Vec(MaxZSize, UInt(1.W))
   val c2vRowMsgOld = Vec(MaxZSize, UInt(C2VRowMsgBits.W))
   val counter      = UInt(log2Ceil(MaxDegreeOfCNU).W)
@@ -119,11 +132,9 @@ class VNUs(implicit p: Parameters) extends DecModule {
 
   val vnuCores = Seq.fill(MaxZSize)(Module(new VNUCore))
 
-  val bitMask = (1.U << io.in.zSize) - 1.U
-
   vnuCores.zipWithIndex.foreach {
     case (core, i) =>
-      core.io.in.en           := bitMask(i) && io.in.en
+      core.io.in.en           := io.in.mask(i) && io.in.en
       core.io.in.v2cSignOld   := io.in.v2cSignOld(i)
       core.io.in.c2vRowMsgOld := io.in.c2vRowMsgOld(i)
       core.io.in.counter      := io.in.counter
@@ -136,5 +147,6 @@ class VNUs(implicit p: Parameters) extends DecModule {
       io.out.c2vRowMsg(i).idx0 := core.io.out.idx0
   }
 
+  // io.out.v2cMsg.valid := RegNext(io.in.en)
   io.out.v2cMsg.valid := io.in.en
 }

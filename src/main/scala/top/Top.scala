@@ -19,6 +19,12 @@ trait HasDecoderParameter {
   val debugOpts = p(DebugOptionsKey)
 }
 
+class LDPCDecoderTopCompressedReq(implicit p: Parameters) extends DecBundle {
+  val idx         = UInt(log2Ceil(MaxColNum).W)
+  val last        = Bool()
+  val decodedCompressedBits = UInt(3.W)
+}
+
 class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecParameter {
 
   class LDPCDecoderImp(wrapper: LDPCDecoderTop) extends LazyModuleImp(wrapper) {
@@ -27,7 +33,7 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
       val in = Flipped(DecoupledIO(new LLRInTransferReq))
 
       // Output
-      val out = DecoupledIO(new LLROutTransferReq)
+      val out = DecoupledIO(new LDPCDecoderTopCompressedReq)
 
       // Debug
       // val llrRAddr                 = ValidIO(UInt(log2Ceil(MaxColNum).W))
@@ -59,7 +65,15 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
     llrInTransfer.io.in <> io.in
     ldpcDecoderCore.io.llrIn <> llrInTransfer.io.out
     llrOutTransfer.io.in <> ldpcDecoderCore.io.llrOut
-    io.out <> llrOutTransfer.io.out
+
+    // io.out <> llrOutTransfer.io.out
+    io.out.valid := llrOutTransfer.io.out.valid
+    io.out.bits.idx := llrOutTransfer.io.out.bits.idx
+    io.out.bits.last := llrOutTransfer.io.out.bits.last
+    io.out.bits.decodedCompressedBits := Cat(llrOutTransfer.io.out.bits.decodedBits(MaxZSize / 3 - 1, 0).orR,
+                                             llrOutTransfer.io.out.bits.decodedBits(2 * MaxZSize / 3 - 1, MaxZSize / 3).orR,
+                                             llrOutTransfer.io.out.bits.decodedBits(MaxZSize - 1, 2 * MaxZSize / 3).orR)
+    llrOutTransfer.io.out.ready := io.out.ready
 
     // io.llrRAddr                 := ldpcDecoderCore.io.llrRAddr
     // io.shiftValue               := ldpcDecoderCore.io.shiftValue

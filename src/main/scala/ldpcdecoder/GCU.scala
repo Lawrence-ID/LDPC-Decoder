@@ -49,11 +49,11 @@ class ShiftValueGenerator(implicit p: Parameters) extends DecModule {
     val zPow  = Input(UInt(log2Ceil(8).W))
     val zSize = Input(UInt(log2Ceil(MaxZSize).W))
 
-    val shiftValueRen    = Input(Bool())
-    val shiftValue = Output(UInt(log2Ceil(MaxZSize).W))
+    val shiftValueRen = Input(Bool())
+    val shiftValue    = Output(UInt(log2Ceil(MaxZSize).W))
 
-    val reShiftValueRen    = Input(Bool())
-    val reShiftValue = Output(UInt(log2Ceil(MaxZSize).W))
+    val reShiftValueRen = Input(Bool())
+    val reShiftValue    = Output(UInt(log2Ceil(MaxZSize).W))
   })
   val isBG1 = io.isBG1
   val zSize = io.zSize
@@ -206,13 +206,13 @@ class GCU(implicit p: Parameters) extends DecModule {
   val llrReadyToShiftIsLastCal = DelayN(llrAddrGenerator.io.isLastCol, 1)
   io.llrReadyToShiftIsLastCal := llrReadyToShiftIsLastCal
 
-  val shiftValueRen = llrRamRen
+  val shiftValueRen       = llrRamRen
   val shiftValueGenerator = Module(new ShiftValueGenerator)
   shiftValueGenerator.io.shiftValueRen := shiftValueRen
-  shiftValueGenerator.io.isBG1   := isBG1
-  shiftValueGenerator.io.zSize   := zSize
-  shiftValueGenerator.io.iLS     := iLS
-  shiftValueGenerator.io.zPow    := zPow
+  shiftValueGenerator.io.isBG1         := isBG1
+  shiftValueGenerator.io.zSize         := zSize
+  shiftValueGenerator.io.iLS           := iLS
+  shiftValueGenerator.io.zPow          := zPow
 
   io.shiftValue.valid := llrReadyToShift
   io.shiftValue.bits  := shiftValueGenerator.io.shiftValue
@@ -378,9 +378,9 @@ class GCU(implicit p: Parameters) extends DecModule {
   io.cnuLayerCounter := cnuLayerCounter
   io.cnuIterCounter  := cnuIterCounter
 
-  io.reShiftValue.valid            := DelayN(cnuCoreBegin, DelayOfCNU)
+  io.reShiftValue.valid                  := DelayN(cnuCoreBegin, DelayOfCNU)
   shiftValueGenerator.io.reShiftValueRen := DelayN(cnuCoreBegin, DelayOfCNU - 1)
-  io.reShiftValue.bits             := shiftValueGenerator.io.reShiftValue
+  io.reShiftValue.bits                   := shiftValueGenerator.io.reShiftValue
 
   val reShifterDone = DelayN(cnuCoreBegin, DelayOfCNU + DelayOfShifter)
 

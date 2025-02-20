@@ -8,6 +8,7 @@ import org.chipsalliance.cde.config.Parameters
 class CyclicShifterInput(implicit p: Parameters) extends DecBundle {
   val llr       = Vec(MaxZSize, UInt(LLRBits.W))
   val zSize     = UInt(log2Ceil(MaxZSize).W)
+  val mask      = UInt(MaxZSize.W) // mask = (1 << zSize) - 1
   val iLS       = UInt(log2Ceil(8).W)
   val zPow      = UInt(log2Ceil(8).W)
   val shiftSize = UInt(log2Ceil(MaxZSize).W)
@@ -24,8 +25,8 @@ class CyclicShifter(val shiftLeft: Boolean = true)(implicit p: Parameters) exten
   val QSNs = Seq.fill(LLRBits)(Module(new QSN(shiftLeft)))
 
   val shiftValueModZc = Module(new ShiftValueModZc)
-  shiftValueModZc.io.s := io.in.bits.shiftSize
-  shiftValueModZc.io.iLS := io.in.bits.iLS
+  shiftValueModZc.io.s    := io.in.bits.shiftSize
+  shiftValueModZc.io.iLS  := io.in.bits.iLS
   shiftValueModZc.io.zPow := io.in.bits.zPow
 
   // val shiftSize = io.in.bits.shiftSize % io.in.zSize// ensure actual shiftSize <= zSize
@@ -39,6 +40,7 @@ class CyclicShifter(val shiftLeft: Boolean = true)(implicit p: Parameters) exten
       io.in.bits.llr.map(_(i))
     ).asUInt // UInt: {llr(383)(0), ..., llr(1)(0), llr(0)(0)}
     QSNs(i).io.in.bits.zSize     := io.in.bits.zSize
+    QSNs(i).io.in.bits.mask      := io.in.bits.mask
     QSNs(i).io.in.bits.shiftSize := shiftSize
   }
 

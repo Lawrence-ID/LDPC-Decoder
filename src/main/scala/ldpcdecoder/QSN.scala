@@ -8,6 +8,7 @@ import org.chipsalliance.cde.config.Parameters
 class QSNInput(implicit p: Parameters) extends DecBundle {
   val srcData   = UInt(MaxZSize.W)
   val zSize     = UInt(log2Ceil(MaxZSize).W)
+  val mask      = UInt(MaxZSize.W)           // // mask = (1 << zSize) - 1
   val shiftSize = UInt(log2Ceil(MaxZSize).W) // need to ensure shiftSize <= zSize
 }
 
@@ -27,11 +28,10 @@ class QSN(val shiftLeft: Boolean = true)(implicit p: Parameters) extends DecModu
   // stage 0
   val s0_valid     = io.in.valid
   val s0_zSize     = io.in.bits.zSize
+  val s0_mask      = io.in.bits.mask
   val s0_srcData   = io.in.bits.srcData
   val s0_shiftSize = io.in.bits.shiftSize
 
-  val s0_mask = WireInit(0.U(MaxZSize.W))
-  s0_mask := (1.U << s0_zSize) - 1.U
   val s0_maskedInput = s0_srcData & s0_mask
 
   // stage 1
@@ -39,14 +39,15 @@ class QSN(val shiftLeft: Boolean = true)(implicit p: Parameters) extends DecModu
   val s1_maskedInput = RegEnable(s0_maskedInput, 0.U, s0_valid)
   val s1_shiftSize   = RegEnable(s0_shiftSize, 0.U, s0_valid)
   val s1_zSize       = RegEnable(s0_zSize, 0.U, s0_valid)
+  val s1_reShiftSize = RegEnable(s0_zSize - s0_shiftSize, 0.U, s0_valid)
   val s1_srcData     = RegEnable(s0_srcData, 0.U, s0_valid)
   val s1_mask        = RegEnable(s0_mask, 0.U, s0_valid)
 
   val s1_result = WireInit(0.U(MaxZSize.W))
   s1_result := (if (shiftLeft) {
-                  (s1_maskedInput >> s1_shiftSize) | (s1_maskedInput << (s1_zSize - s1_shiftSize))
+                  (s1_maskedInput >> s1_shiftSize) | (s1_maskedInput << s1_reShiftSize)
                 } else {
-                  (s1_maskedInput << s1_shiftSize) | (s1_maskedInput >> (s1_zSize - s1_shiftSize))
+                  (s1_maskedInput << s1_shiftSize) | (s1_maskedInput >> s1_reShiftSize)
                 })
 
   // stage 2

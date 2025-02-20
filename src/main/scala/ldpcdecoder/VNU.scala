@@ -36,11 +36,11 @@ class VNUCore(implicit p: Parameters) extends DecModule {
   // val in_counter      = RegEnable(io.in.counter     , 0.U    , io.in.en)
   // val in_shiftedLLR   = RegEnable(io.in.shiftedLLR  , 0.S    , io.in.en)
 
-  val in_en           = io.in.en          
-  val in_v2cSignOld   = io.in.v2cSignOld  
+  val in_en           = io.in.en
+  val in_v2cSignOld   = io.in.v2cSignOld
   val in_c2vRowMsgOld = io.in.c2vRowMsgOld
-  val in_counter      = io.in.counter     
-  val in_shiftedLLR   = io.in.shiftedLLR  
+  val in_counter      = io.in.counter
+  val in_shiftedLLR   = io.in.shiftedLLR
 
   // Stage 1
   val gsgnOld = in_c2vRowMsgOld(0).asUInt

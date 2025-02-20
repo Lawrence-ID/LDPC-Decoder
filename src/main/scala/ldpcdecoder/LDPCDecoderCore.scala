@@ -111,9 +111,16 @@ class LDPCDecoderCore(implicit p: Parameters) extends DecModule {
   val zPow   = RegEnable(io.llrIn.bits.zPow, state === m_idle && next_state === m_llrInput)
   val colNum = Mux(isBG1, BG1ColNum.U, BG2ColNum.U)
 
-  val zSize =
-    RegEnable(zSizeCalculator(iLS, zPow), 0.U(log2Ceil(MaxZSize).W), state === m_llrInput && next_state === m_decoding)
-  val vnus_cnus_mask = RegEnable((1.U << zSize) - 1.U, 0.U(MaxZSize.W), RegNext(state === m_llrInput && next_state === m_decoding))
+  val zSize = RegEnable(
+    zSizeCalculator(iLS, zPow), 
+    0.U(log2Ceil(MaxZSize).W), 
+    state === m_llrInput && next_state === m_decoding
+  )
+  val maskByZSize = RegEnable(
+    (1.U << zSize) - 1.U,
+    0.U(MaxZSize.W),
+    RegNext(state === m_llrInput && next_state === m_decoding)
+  )
 
   dontTouch(state)
   dontTouch(next_state)
@@ -193,6 +200,7 @@ class LDPCDecoderCore(implicit p: Parameters) extends DecModule {
   cyclicShifter.io.in.valid          := GCU.io.shiftValue.valid // shift en
   cyclicShifter.io.in.bits.llr       := llrRAMRData             // need to be read from llrRam
   cyclicShifter.io.in.bits.zSize     := zSize
+  cyclicShifter.io.in.bits.mask      := maskByZSize
   cyclicShifter.io.in.bits.iLS       := iLS
   cyclicShifter.io.in.bits.zPow      := zPow
   cyclicShifter.io.in.bits.shiftSize := GCU.io.shiftValue.bits
@@ -210,7 +218,7 @@ class LDPCDecoderCore(implicit p: Parameters) extends DecModule {
     VecInit(Seq.fill(MaxZSize)(0.U(C2VRowMsgBits.W)))
   )
   vnus.io.in.en           := GCU.io.vnuCoreEn
-  vnus.io.in.mask        := vnus_cnus_mask
+  vnus.io.in.mask         := maskByZSize
   vnus.io.in.counter      := GCU.io.vnuCoreCounter
   vnus.io.in.v2cSignOld   := v2cSignPrevIter
   vnus.io.in.c2vRowMsgOld := c2vRowMsgPrevIter
@@ -225,7 +233,7 @@ class LDPCDecoderCore(implicit p: Parameters) extends DecModule {
 
   // CNUs Input
   cnus.io.in.en        := GCU.io.cnuCoreEn
-  cnus.io.in.mask      := vnus_cnus_mask
+  cnus.io.in.mask      := maskByZSize
   cnus.io.in.counter   := GCU.io.cnuCoreCounter
   cnus.io.in.v2cMsg    := Mv2cFifo.io.deq.bits
   cnus.io.in.c2vRowMsg := DecoupledFifo.io.deq.bits
@@ -252,6 +260,7 @@ class LDPCDecoderCore(implicit p: Parameters) extends DecModule {
   reCyclicShifter.io.in.valid          := GCU.io.reShiftValue.valid
   reCyclicShifter.io.in.bits.llr       := cnus.io.out.unshiftedLLR
   reCyclicShifter.io.in.bits.zSize     := zSize
+  reCyclicShifter.io.in.bits.mask      := maskByZSize
   reCyclicShifter.io.in.bits.iLS       := iLS
   reCyclicShifter.io.in.bits.zPow      := zPow
   reCyclicShifter.io.in.bits.shiftSize := GCU.io.reShiftValue.bits

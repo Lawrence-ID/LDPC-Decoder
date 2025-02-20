@@ -20,8 +20,8 @@ trait HasDecoderParameter {
 }
 
 class LDPCDecoderTopCompressedReq(implicit p: Parameters) extends DecBundle {
-  val idx         = UInt(log2Ceil(MaxColNum).W)
-  val last        = Bool()
+  val idx                   = UInt(log2Ceil(MaxColNum).W)
+  val last                  = Bool()
   val decodedCompressedBits = UInt(3.W)
 }
 
@@ -34,6 +34,7 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
 
       // Output
       val out = DecoupledIO(new LDPCDecoderTopCompressedReq)
+      val globalCounter = Output(UInt(30.W))
 
       // Debug
       // val llrRAddr                 = ValidIO(UInt(log2Ceil(MaxColNum).W))
@@ -56,6 +57,9 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
       // val decoupledFifoIn          = Output(Bool())
       // val decoupledFifoOut         = Output(Bool())
     })
+    val globalCounter = RegInit(0.U(30.W))
+    globalCounter := globalCounter + 1.U
+    io.globalCounter := globalCounter
 
     val llrInTransfer  = Module(new LLRInTransfer)
     val llrOutTransfer = Module(new LLROutTransfer)
@@ -67,12 +71,14 @@ class LDPCDecoderTop()(implicit p: Parameters) extends LazyModule with HasDecPar
     llrOutTransfer.io.in <> ldpcDecoderCore.io.llrOut
 
     // io.out <> llrOutTransfer.io.out
-    io.out.valid := llrOutTransfer.io.out.valid
-    io.out.bits.idx := llrOutTransfer.io.out.bits.idx
+    io.out.valid     := llrOutTransfer.io.out.valid
+    io.out.bits.idx  := llrOutTransfer.io.out.bits.idx
     io.out.bits.last := llrOutTransfer.io.out.bits.last
-    io.out.bits.decodedCompressedBits := Cat(llrOutTransfer.io.out.bits.decodedBits(MaxZSize / 3 - 1, 0).orR,
-                                             llrOutTransfer.io.out.bits.decodedBits(2 * MaxZSize / 3 - 1, MaxZSize / 3).orR,
-                                             llrOutTransfer.io.out.bits.decodedBits(MaxZSize - 1, 2 * MaxZSize / 3).orR)
+    io.out.bits.decodedCompressedBits := Cat(
+      llrOutTransfer.io.out.bits.decodedBits(MaxZSize / 3 - 1, 0).orR,
+      llrOutTransfer.io.out.bits.decodedBits(2 * MaxZSize / 3 - 1, MaxZSize / 3).orR,
+      llrOutTransfer.io.out.bits.decodedBits(MaxZSize - 1, 2 * MaxZSize / 3).orR
+    )
     llrOutTransfer.io.out.ready := io.out.ready
 
     // io.llrRAddr                 := ldpcDecoderCore.io.llrRAddr

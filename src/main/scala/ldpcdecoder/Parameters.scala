@@ -819,13 +819,13 @@ trait HasDecParameter {
   def BG2ShiftValue   = p(DecParamsKey).BG2ShiftValue
   def MaxShiftValueVecLen =
     if (BG1ShiftValue.length > BG2ShiftValue.length) BG1ShiftValue.length else BG2ShiftValue.length
-  def DelayOfShifter = p(DecParamsKey).DelayOfShifter
-  def DelayOfVNU     = p(DecParamsKey).DelayOfVNU
-  def DelayOfCNU     = p(DecParamsKey).DelayOfCNU
-  def MaxDegreeOfCNU = p(DecParamsKey).MaxDegreeOfCNU
-  def C2VMsgMagWidth = LLRBits - 3
-  def C2VRowMsgBits  = 1 + 2 * C2VMsgMagWidth + log2Ceil(MaxDegreeOfCNU)
-  def MaxEdgeNum     = p(DecParamsKey).BG1ColIdx.length
-  def MaxIterNum     = p(DecParamsKey).MaxIterNum
+  def DelayOfShifter     = p(DecParamsKey).DelayOfShifter
+  def DelayOfVNU         = p(DecParamsKey).DelayOfVNU
+  def DelayOfCNU         = p(DecParamsKey).DelayOfCNU
+  def MaxDegreeOfCNU     = p(DecParamsKey).MaxDegreeOfCNU
+  def C2VMsgMagWidth     = LLRBits - 3
+  def C2VRowMsgBits      = 1 + 2 * C2VMsgMagWidth + log2Ceil(MaxDegreeOfCNU)
+  def MaxEdgeNum         = p(DecParamsKey).BG1ColIdx.length
+  def MaxIterNum         = p(DecParamsKey).MaxIterNum
   def ShiftValueModZcLUT = p(DecParamsKey).ShiftValueModZcLUT
 }

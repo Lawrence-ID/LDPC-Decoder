@@ -116,8 +116,10 @@ class LDPCDecoderCore(implicit p: Parameters) extends DecModule {
     0.U(log2Ceil(MaxZSize).W), 
     state === m_llrInput && next_state === m_decoding
   )
+  val dynOnes = Module(new DynamicOnes(MaxZSize))
+  dynOnes.io.in := zSize
   val maskByZSize = RegEnable(
-    (1.U << zSize) - 1.U,
+    dynOnes.io.out,
     0.U(MaxZSize.W),
     RegNext(state === m_llrInput && next_state === m_decoding)
   )

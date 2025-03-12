@@ -58,11 +58,12 @@ class VNUCore(implicit p: Parameters) extends DecModule {
 
   val v2cMsg = Wire(SInt((LLRBits + 1).W))
   v2cMsg        := in_shiftedLLR -& c2vMsgPrevIter // keep the carry bit
-  io.out.v2cMsg := v2cMsg
+  // io.out.v2cMsg := v2cMsg
 
   // printf(p"shiftedLLR: ${in_shiftedLLR}, c2vMsgPrevIter: ${c2vMsgPrevIter}, v2cMsg: ${v2cMsg}(${Binary(v2cMsg.asUInt)}), v2cMsg.valid: ${in_en} \n")
 
   val v2cMsgReg = RegEnable(v2cMsg, 0.S((LLRBits + 1).W), in_en)
+  io.out.v2cMsg := v2cMsgReg
 
   // Stage 2
   val gsgn = RegInit(0.U(1.W))
@@ -147,6 +148,6 @@ class VNUs(implicit p: Parameters) extends DecModule {
       io.out.c2vRowMsg(i).idx0 := core.io.out.idx0
   }
 
-  // io.out.v2cMsg.valid := RegNext(io.in.en)
-  io.out.v2cMsg.valid := io.in.en
+  io.out.v2cMsg.valid := RegNext(io.in.en)
+  // io.out.v2cMsg.valid := io.in.en
 }

@@ -36,3 +36,10 @@ git submodule update --init --recursive
 mill resolve __.test
 mill __.test
 ```
+
+### How to sim
+```sh
+cd LDPC-Decoder
+make sim
+vimdiff llrRAM.txt llrRAM_matlab_output2_all_fix.txt
+```

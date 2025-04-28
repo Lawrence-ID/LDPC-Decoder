@@ -28,9 +28,9 @@ class CyclicShifter(val shiftLeft: Boolean = true)(implicit p: Parameters) exten
   shiftValueModZc.io.s    := io.in.bits.shiftSize
   shiftValueModZc.io.iLS  := io.in.bits.iLS
   shiftValueModZc.io.zPow := io.in.bits.zPow
+  val shiftSize = shiftValueModZc.io.out
 
   // val shiftSize = io.in.bits.shiftSize % io.in.zSize// ensure actual shiftSize <= zSize
-  val shiftSize = shiftValueModZc.io.out
 
   for (i <- 0 until LLRBits) {
     QSNs(i).io.in.valid := io.in.fire

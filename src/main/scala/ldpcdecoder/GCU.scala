@@ -19,27 +19,47 @@ class LLRAddrGenerator(implicit p: Parameters) extends DecModule {
 
   val isBG1 = io.isBG1
 
-  assert(BG1ColIdx.length > BG2ColIdx.length)
+  if(BG1ColIdx.length > BG2ColIdx.length){
+    val BG2ColIdxPadded = BG2ColIdx.padTo(BG1ColIdx.length, 0)
+    val colIdxVec = Mux(
+      isBG1,
+      VecInit(BG1ColIdx.map(_.U(log2Ceil(MaxColNum).W))),
+      VecInit(BG2ColIdxPadded.map(_.U(log2Ceil(MaxColNum).W)))
+    )
 
-  val BG2ColIdxPadded = BG2ColIdx.padTo(BG1ColIdx.length, 0)
-  val colIdxVec = Mux(
-    isBG1,
-    VecInit(BG1ColIdx.map(_.U(log2Ceil(MaxColNum).W))),
-    VecInit(BG2ColIdxPadded.map(_.U(log2Ceil(MaxColNum).W)))
-  )
+    val BG2IsLastColPadded = BG2IsLastCol.padTo(BG1IsLastCol.length, false)
+    val isLastColVec       = Mux(isBG1, VecInit(BG1IsLastCol.map(_.B)), VecInit(BG2IsLastColPadded.map(_.B)))
 
-  val BG2IsLastColPadded = BG2IsLastCol.padTo(BG1IsLastCol.length, false)
-  val isLastColVec       = Mux(isBG1, VecInit(BG1IsLastCol.map(_.B)), VecInit(BG2IsLastColPadded.map(_.B)))
+    val BG2IsFirstColPadded = BG2IsFirstCol.padTo(BG1IsFirstCol.length, false)
+    val isFirstColVec       = Mux(isBG1, VecInit(BG1IsFirstCol.map(_.B)), VecInit(BG2IsFirstColPadded.map(_.B)))
 
-  val BG2IsFirstColPadded = BG2IsFirstCol.padTo(BG1IsFirstCol.length, false)
-  val isFirstColVec       = Mux(isBG1, VecInit(BG1IsFirstCol.map(_.B)), VecInit(BG2IsFirstColPadded.map(_.B)))
+    assert(colIdxVec.length == isLastColVec.length)
 
-  assert(colIdxVec.length == isLastColVec.length)
+    io.llrRAddr   := colIdxVec(io.llrRAddrGenCounter)
+    io.isLastCol  := isLastColVec(io.llrRAddrGenCounter)
+    io.isFirstCol := isFirstColVec(io.llrRAddrGenCounter)
+    io.llrWAddr   := colIdxVec(io.llrWAddrGenCounter)
+  }else{
+    val BG1ColIdxPadded = BG1ColIdx.padTo(BG2ColIdx.length, 0)
+    val colIdxVec = Mux(
+      isBG1,
+      VecInit(BG1ColIdxPadded.map(_.U(log2Ceil(MaxColNum).W))),
+      VecInit(BG2ColIdx.map(_.U(log2Ceil(MaxColNum).W)))
+    )
 
-  io.llrRAddr   := colIdxVec(io.llrRAddrGenCounter)
-  io.isLastCol  := isLastColVec(io.llrRAddrGenCounter)
-  io.isFirstCol := isFirstColVec(io.llrRAddrGenCounter)
-  io.llrWAddr   := colIdxVec(io.llrWAddrGenCounter)
+    val BG1IsLastColPadded = BG1IsLastCol.padTo(BG2IsLastCol.length, false)
+    val isLastColVec       = Mux(isBG1, VecInit(BG1IsLastColPadded.map(_.B)), VecInit(BG2IsLastCol.map(_.B)))
+
+    val BG1IsFirstColPadded = BG1IsFirstCol.padTo(BG2IsFirstCol.length, false)
+    val isFirstColVec       = Mux(isBG1, VecInit(BG1IsFirstColPadded.map(_.B)), VecInit(BG2IsFirstCol.map(_.B)))
+
+    assert(colIdxVec.length == isLastColVec.length)
+
+    io.llrRAddr   := colIdxVec(io.llrRAddrGenCounter)
+    io.isLastCol  := isLastColVec(io.llrRAddrGenCounter)
+    io.isFirstCol := isFirstColVec(io.llrRAddrGenCounter)
+    io.llrWAddr   := colIdxVec(io.llrWAddrGenCounter)
+  }
 }
 
 class ShiftValueGenerator(implicit p: Parameters) extends DecModule {

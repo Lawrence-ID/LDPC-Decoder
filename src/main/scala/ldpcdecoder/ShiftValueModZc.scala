@@ -34,13 +34,13 @@ class ShiftValueModZc(implicit p: Parameters) extends DecModule {
   s_mod_zPow := io.s >> io.zPow
 
   // ================use ModLUT================
-  val modLUT = Module(new ModLUT)
-  modLUT.io.s_mod_zPow := s_mod_zPow
-  modLUT.io.b          := b
-  val s_mod_zPow_mod_b = Wire(UInt(log2Ceil(15).W))
-  s_mod_zPow_mod_b := Mux(b === 2.U(log2Ceil(15).W), s_mod_zPow(0), modLUT.io.out)
-  io.out           := (io.s & ((1.U << io.zPow) - 1.U)) + (s_mod_zPow_mod_b << io.zPow)
+  // val modLUT = Module(new ModLUT)
+  // modLUT.io.s_mod_zPow := s_mod_zPow
+  // modLUT.io.b          := b
+  // val s_mod_zPow_mod_b = Wire(UInt(log2Ceil(15).W))
+  // s_mod_zPow_mod_b := Mux(b === 2.U(log2Ceil(15).W), s_mod_zPow(0), modLUT.io.out)
+  // io.out           := (io.s & ((1.U << io.zPow) - 1.U)) + (s_mod_zPow_mod_b << io.zPow)
 
   // ================use Mod operation================
-  // io.out := (io.s & ((1.U << io.zPow) - 1.U)) + ((s_mod_zPow % b) << io.zPow)
+  io.out := (io.s & ((1.U << io.zPow) - 1.U)) + ((s_mod_zPow % b) << io.zPow)
 }

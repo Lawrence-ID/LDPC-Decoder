@@ -42,6 +42,9 @@ def find_non_negative_one_indices(matrix: np.ndarray) -> (np.ndarray, np.ndarray
 def print_message(matrix: np.ndarray, bg):
     col_idx, shift_value, is_last_col, is_first_col, num_each_row = find_non_negative_one_indices(matrix)
 
+    print(f"BG{bg}RowNum: Int = {matrix.shape[0]},")
+    print(f"BG{bg}ColNum: Int = {matrix.shape[1]},")
+    
     print("/* NumAtLayer: */")
     print(f"BG{bg}NumAtLayer: Seq[Int] = Seq(")
     print(", ".join(map(str, num_each_row)))
